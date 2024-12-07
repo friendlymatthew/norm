@@ -50,3 +50,32 @@ impl TryFrom<u8> for ColorType {
         Ok(val)
     }
 }
+
+#[derive(Debug)]
+pub struct ZLib {
+    pub(crate) compression_method_flags: u8,
+    pub(crate) additional_flags: u8,
+    pub(crate) check_value: u32,
+}
+
+impl ZLib {
+    pub fn compression_method(&self) -> u8 {
+        self.compression_method_flags & 0b1111
+    }
+
+    pub fn compression_info(&self) -> u8 {
+        (self.compression_method_flags & 0b1111_0000) >> 4
+    }
+
+    pub fn flag_check(&self) -> u8 {
+        self.additional_flags & 0b1_1111
+    }
+
+    pub fn preset_dictionary(&self) -> bool {
+        self.additional_flags & 0b10_0000 != 0
+    }
+
+    pub fn compression_level(&self) -> u8 {
+        (self.additional_flags & 0b1100_0000) >> 6
+    }
+}

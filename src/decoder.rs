@@ -1,5 +1,6 @@
 use anyhow::{bail, ensure, Result};
 
+use crate::deflate::DeflateDecompressor;
 use crate::grammar::{Chunk, ImageHeader};
 
 #[derive(Debug)]
@@ -49,8 +50,11 @@ impl<'a> Decoder<'a> {
         Ok(())
     }
 
-    fn deflate(&mut self, _compressed_stream: Vec<u8>) -> Result<()> {
-        todo!("What does deflate look like?")
+    fn deflate(&mut self, compressed_stream: Vec<u8>) -> Result<()> {
+        let mut deflate_decompressor = DeflateDecompressor::new(compressed_stream);
+        let _ = deflate_decompressor.decompress()?;
+
+        Ok(())
     }
 
     fn parse_chunks(&mut self) -> Result<Vec<Chunk>> {
@@ -97,6 +101,8 @@ impl<'a> Decoder<'a> {
                 self.cursor,
                 end
             );
+
+            return Ok(());
         }
 
         ensure!(
