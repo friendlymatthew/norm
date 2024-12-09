@@ -13,4 +13,4 @@ if [ ! -f "$FILE" ]; then
 fi
 
 cargo build --release
-samply record cargo run "$FILE"
+samply record cargo run --release "$FILE"

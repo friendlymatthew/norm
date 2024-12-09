@@ -122,11 +122,11 @@ impl<'a> Decoder<'a> {
                 b"PLTE" => todo!("What does a palette look like?"),
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),
                 b"IEND" => break,
-                foreign => todo!(
-                    "There may be some other chunks to handle at {}. Identifier: {:?}.",
-                    self.cursor,
-                    foreign
-                ),
+                foreign => {
+                    // todo! how would ancillary chunks be parsed?
+                    self.cursor += length;
+                    continue;
+                }
             };
 
             let _crc = self.read_u32()?;
