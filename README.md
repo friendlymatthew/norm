@@ -1,10 +1,10 @@
 # png
 
-A PNG renderer.
+A PNG parser and renderer.
 
-<img src="./tests/potatoe.png">
+<img src="./tests/potatoe.png" alt="Dan Quayle's Potatoe">
 
-## Literature
+## Reading
 
 https://www.w3.org/TR/2003/REC-PNG-20031110/<br>
 https://www.ietf.org/rfc/rfc1951.txt<br>
