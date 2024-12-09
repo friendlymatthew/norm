@@ -17,7 +17,13 @@ pub struct ImageHeader {
     // Compression method should always be 0.
     pub(crate) compression_method: u8,
     pub(crate) filter_method: u8,
-    pub(crate) interlace_method: u8,
+    pub(crate) interlace_method: bool,
+}
+
+impl ImageHeader {
+    pub(crate) fn num_bytes_per_pixel(&self) -> usize {
+        (self.color_type.num_channels() * self.bit_depth) as usize / 8
+    }
 }
 
 #[derive(Debug)]
@@ -25,13 +31,25 @@ pub struct Palette {
     pub(crate) palette: Vec<(u8, u8, u8)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum ColorType {
     Grayscale = 0,
     RGB = 2,
     Palette = 3,
     GrayscaleAlpha = 4,
     RGBA = 6,
+}
+
+impl ColorType {
+    pub(crate) fn num_channels(&self) -> u8 {
+        match self {
+            ColorType::Grayscale => 1,
+            ColorType::RGB => 3,
+            ColorType::Palette => 1,
+            ColorType::GrayscaleAlpha => 2,
+            ColorType::RGBA => 4,
+        }
+    }
 }
 
 impl TryFrom<u8> for ColorType {
@@ -48,6 +66,61 @@ impl TryFrom<u8> for ColorType {
         };
 
         Ok(val)
+    }
+}
+
+#[derive(Debug)]
+pub enum Filter {
+    None = 0,
+    Sub = 1,
+    Up = 2,
+    Average = 3,
+    Paeth = 4,
+}
+
+impl TryFrom<u8> for Filter {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        let f = match value {
+            0 => Filter::None,
+            1 => Filter::Sub,
+            2 => Filter::Up,
+            3 => Filter::Average,
+            4 => Filter::Paeth,
+            foreign => bail!("Unrecognized filter method: {}", foreign),
+        };
+
+        Ok(f)
+    }
+}
+
+#[derive(Debug)]
+pub struct Png {
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) color_type: ColorType,
+    pub(crate) image_data: Vec<u8>,
+}
+
+impl Png {
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn color_type(&self) -> ColorType {
+        self.color_type
+    }
+
+    pub fn rgba_buffer(&self) -> Vec<u32> {
+        self.image_data
+            .chunks_exact(4)
+            .map(|b| u32::from_be_bytes([b[3], b[0], b[1], b[2]]))
+            .collect::<Vec<u32>>()
     }
 }
 

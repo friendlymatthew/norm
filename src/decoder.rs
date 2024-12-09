@@ -3,7 +3,7 @@ use std::io::Read;
 use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
 
-use crate::grammar::{Chunk, ImageHeader};
+use crate::grammar::{Chunk, Filter, ImageHeader, Png};
 
 #[derive(Debug)]
 pub struct Decoder<'a> {
@@ -16,7 +16,7 @@ impl<'a> Decoder<'a> {
         Self { cursor: 0, data }
     }
 
-    pub fn decode(&mut self) -> Result<()> {
+    pub fn decode(&mut self) -> Result<Png> {
         ensure!(
             self.read_slice(8)? == b"\x89PNG\r\n\x1A\n",
             "Expected signature.",
@@ -26,7 +26,7 @@ impl<'a> Decoder<'a> {
 
         let mut chunks = chunks.into_iter();
 
-        let Some(Chunk::ImageHeader(_image_header)) = chunks.next() else {
+        let Some(Chunk::ImageHeader(image_header)) = chunks.next() else {
             bail!("Expected image header chunk.");
         };
 
@@ -48,10 +48,59 @@ impl<'a> Decoder<'a> {
         // todo!, what if ancillary chunks appear after the image data chunks?
 
         let mut zlib_decoder = ZlibDecoder::new(&compressed_stream[..]);
-        let mut stream = Vec::new();
-        zlib_decoder.read_to_end(&mut stream)?;
+        let mut pixel_buffer = Vec::new();
+        zlib_decoder.read_to_end(&mut pixel_buffer)?;
 
-        Ok(())
+        // filter
+        ensure!(
+            image_header.filter_method == 0,
+            "Only filter method 0 is defined in the standard."
+        );
+
+        let mut image_data = Vec::new();
+
+        let bytes_per_row = image_header.num_bytes_per_pixel() * image_header.width as usize;
+
+        for i in 0..image_header.height as usize {
+            let mut row_start_idx = i * (1 + bytes_per_row);
+            let filter_type = Filter::try_from(pixel_buffer[row_start_idx])?;
+            row_start_idx += 1;
+            let row = &pixel_buffer[row_start_idx..row_start_idx + bytes_per_row];
+
+            match filter_type {
+                Filter::None => {
+                    // the best filter.
+                }
+                Filter::Sub => {
+                    let mut image_row = Vec::new();
+                    let mut prevs = vec![0; image_header.color_type.num_channels() as usize];
+
+                    for i in 0..row.len() {
+                        let prev_idx = i % 4;
+                        let filtered = row[i].wrapping_add(prevs[prev_idx]);
+                        image_row.push(filtered);
+                        prevs[prev_idx] = filtered;
+                    }
+
+                    image_data.extend_from_slice(&image_row);
+                }
+                Filter::Up => todo!("What does the Up filter function look like?"),
+                Filter::Average => todo!("What does the Average filter function look like?"),
+                Filter::Paeth => todo!("What does the Paeth filter function look like?"),
+            }
+        }
+
+        assert_eq!(
+            image_data.len(),
+            pixel_buffer.len() - image_header.height as usize
+        );
+
+        Ok(Png {
+            width: image_header.width,
+            height: image_header.height,
+            color_type: image_header.color_type,
+            image_data,
+        })
     }
 
     fn parse_chunks(&mut self) -> Result<Vec<Chunk>> {
@@ -68,7 +117,7 @@ impl<'a> Decoder<'a> {
                     color_type: self.read_u8()?.try_into()?,
                     compression_method: self.read_u8()?,
                     filter_method: self.read_u8()?,
-                    interlace_method: self.read_u8()?,
+                    interlace_method: self.read_u8()? == 1,
                 }),
                 b"PLTE" => todo!("What does a palette look like?"),
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),
@@ -91,19 +140,8 @@ impl<'a> Decoder<'a> {
     fn eof(&self, len: usize) -> Result<()> {
         let end = self.data.len();
 
-        if len == 0 {
-            ensure!(
-                self.cursor < end,
-                "Unexpected EOF. At {}, buffer size: {}.",
-                self.cursor,
-                end
-            );
-
-            return Ok(());
-        }
-
         ensure!(
-            self.cursor + len - 1 < self.data.len(),
+            self.cursor + len.saturating_sub(1) < self.data.len(),
             "Unexpected EOF. At {}, seek by {}, buffer size: {}.",
             self.cursor,
             len,
@@ -151,9 +189,10 @@ mod tests {
     fn test_potatoe() -> Result<()> {
         let content = std::fs::read("./tests/potatoe.png")?;
         let mut decoder = Decoder::new(&content);
-        let _ = decoder.decode()?;
+        let png = decoder.decode()?;
 
-        assert!(false);
+        assert_eq!(png.height, 1158);
+        assert_eq!(png.width, 2048);
 
         Ok(())
     }
