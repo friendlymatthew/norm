@@ -1,6 +1,8 @@
-use anyhow::{bail, ensure, Result};
+use std::io::Read;
 
-use crate::deflate::DeflateDecompressor;
+use anyhow::{bail, ensure, Result};
+use flate2::read::ZlibDecoder;
+
 use crate::grammar::{Chunk, ImageHeader};
 
 #[derive(Debug)]
@@ -43,16 +45,11 @@ impl<'a> Decoder<'a> {
             chunks.next();
         }
 
-        self.deflate(compressed_stream)?;
-
         // todo!, what if ancillary chunks appear after the image data chunks?
 
-        Ok(())
-    }
-
-    fn deflate(&mut self, compressed_stream: Vec<u8>) -> Result<()> {
-        let mut deflate_decompressor = DeflateDecompressor::new(compressed_stream);
-        let _ = deflate_decompressor.decompress()?;
+        let mut zlib_decoder = ZlibDecoder::new(&compressed_stream[..]);
+        let mut stream = Vec::new();
+        zlib_decoder.read_to_end(&mut stream)?;
 
         Ok(())
     }

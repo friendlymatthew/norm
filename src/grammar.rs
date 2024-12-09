@@ -51,6 +51,7 @@ impl TryFrom<u8> for ColorType {
     }
 }
 
+/* todo!("What would custom ZLib decompression look like?)
 #[derive(Debug)]
 pub struct ZLib {
     pub(crate) compression_method_flags: u8,
@@ -79,3 +80,28 @@ impl ZLib {
         (self.additional_flags & 0b1100_0000) >> 6
     }
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Block {
+    NoCompression = 0b00,
+    FixedHuffmanCodes = 0b01,
+    DynamicHuffmanCodes = 0b10,
+    Reserved = 0b11,
+}
+
+impl TryFrom<usize> for Block {
+    type Error = anyhow::Error;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        let bt = match value {
+            0b00 => Self::NoCompression,
+            0b01 => Self::FixedHuffmanCodes,
+            0b10 => Self::DynamicHuffmanCodes,
+            0b11 => Self::Reserved,
+            foreign => bail!("Unrecognized block type: {}", foreign),
+        };
+
+        Ok(bt)
+    }
+}
+*/

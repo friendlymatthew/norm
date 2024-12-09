@@ -1,5 +1,5 @@
 #![warn(clippy::nursery)]
 
+mod bitstream;
 pub mod decoder;
-mod deflate;
 pub mod grammar;

@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.94"
+flate2 = "1.0.35"
