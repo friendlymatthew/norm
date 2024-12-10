@@ -20,6 +20,5 @@ To profile `png`, the `profile.sh` script serves as syntatic sugar for running s
 ## Reading
 
 https://www.w3.org/TR/2003/REC-PNG-20031110/<br>
-https://www.ietf.org/rfc/rfc1951.txt<br>
-
+http://www.schaik.com/pngsuite/pngsuite.html<br>
 https://www.youtube.com/watch?v=EFUYNoFRHQI<br>
