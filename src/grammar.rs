@@ -15,13 +15,13 @@ pub struct ImageHeader {
     pub(crate) color_type: ColorType,
 
     // Compression method should always be 0.
-    pub(crate) compression_method: u8,
+    pub(crate) _compression_method: u8,
     pub(crate) filter_method: u8,
-    pub(crate) interlace_method: bool,
+    pub(crate) _interlace_method: bool,
 }
 
 impl ImageHeader {
-    pub(crate) fn num_bytes_per_pixel(&self) -> usize {
+    pub(crate) const fn num_bytes_per_pixel(&self) -> usize {
         (self.color_type.num_channels() * self.bit_depth) as usize / 8
     }
 }
@@ -41,13 +41,13 @@ pub enum ColorType {
 }
 
 impl ColorType {
-    pub(crate) fn num_channels(&self) -> u8 {
+    pub(crate) const fn num_channels(&self) -> u8 {
         match self {
-            ColorType::Grayscale => 1,
-            ColorType::RGB => 3,
-            ColorType::Palette => 1,
-            ColorType::GrayscaleAlpha => 2,
-            ColorType::RGBA => 4,
+            Self::Grayscale => 1,
+            Self::RGB => 3,
+            Self::Palette => 1,
+            Self::GrayscaleAlpha => 2,
+            Self::RGBA => 4,
         }
     }
 }
@@ -83,11 +83,11 @@ impl TryFrom<u8> for Filter {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         let f = match value {
-            0 => Filter::None,
-            1 => Filter::Sub,
-            2 => Filter::Up,
-            3 => Filter::Average,
-            4 => Filter::Paeth,
+            0 => Self::None,
+            1 => Self::Sub,
+            2 => Self::Up,
+            3 => Self::Average,
+            4 => Self::Paeth,
             foreign => bail!("Unrecognized filter method: {}", foreign),
         };
 
@@ -112,7 +112,7 @@ impl Png {
         self.height
     }
 
-    pub fn color_type(&self) -> ColorType {
+    pub const fn color_type(&self) -> ColorType {
         self.color_type
     }
 

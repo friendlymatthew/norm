@@ -81,10 +81,10 @@ impl<'a> Decoder<'a> {
                 }
                 Filter::Sub => {
                     let mut image_row = Vec::new();
-                    let mut prevs = vec![0; num_channels as usize];
+                    let mut prevs = vec![0; num_channels];
 
                     for i in 0..row.len() {
-                        let prev_idx = i % num_channels as usize;
+                        let prev_idx = i % num_channels;
                         let filtered = row[i].wrapping_add(prevs[prev_idx]);
                         image_row.push(filtered);
                         prevs[prev_idx] = filtered;
@@ -94,7 +94,7 @@ impl<'a> Decoder<'a> {
                 }
                 Filter::Up => {
                     let mut image_row = Vec::new();
-                    let mut ups = prev_row;
+                    let ups = prev_row;
 
                     for i in 0..row.len() {
                         let filtered = row[i].wrapping_add(ups[i]);
@@ -105,11 +105,11 @@ impl<'a> Decoder<'a> {
                 }
                 Filter::Average => {
                     let mut image_row = Vec::new();
-                    let mut lefts = vec![0_u8; num_channels as usize];
+                    let mut lefts = vec![0_u8; num_channels];
                     let ups = prev_row;
 
                     for i in 0..row.len() {
-                        let left_idx = i % num_channels as usize;
+                        let left_idx = i % num_channels;
 
                         let mut ab = (lefts[left_idx] as u16).wrapping_add(ups[i] as u16);
                         ab /= 2;
@@ -123,11 +123,11 @@ impl<'a> Decoder<'a> {
                 }
                 Filter::Paeth => {
                     let mut image_row = Vec::new();
-                    let mut lefts = vec![0; num_channels as usize];
+                    let mut lefts = vec![0; num_channels];
                     let ups = prev_row;
 
                     for i in 0..row.len() {
-                        let left_idx = i % num_channels as usize;
+                        let left_idx = i % num_channels;
                         let left = lefts[left_idx];
                         let up = ups[i];
                         let up_left = if i < num_channels {
@@ -157,7 +157,7 @@ impl<'a> Decoder<'a> {
         })
     }
 
-    fn paeth(&self, left: u8, up: u8, up_left: u8) -> u8 {
+    const fn paeth(&self, left: u8, up: u8, up_left: u8) -> u8 {
         let a = left as i16;
         let b = up as i16;
         let c = up_left as i16;
@@ -189,16 +189,16 @@ impl<'a> Decoder<'a> {
                     height: self.read_u32()?,
                     bit_depth: self.read_u8()?,
                     color_type: self.read_u8()?.try_into()?,
-                    compression_method: self.read_u8()?,
+                    _compression_method: self.read_u8()?,
                     filter_method: self.read_u8()?,
-                    interlace_method: self.read_u8()? == 1,
+                    _interlace_method: self.read_u8()? == 1,
                 }),
                 b"PLTE" => todo!("What does a palette look like?"),
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),
                 b"IEND" => break,
                 foreign => {
                     // todo! how would ancillary chunks be parsed?
-                    dbg!(String::from_utf8(foreign.to_vec()), self.cursor, length);
+                    dbg!(String::from_utf8(foreign.to_vec())?, self.cursor, length);
                     self.cursor += length;
                     let _crc = self.read_u32()?;
                     continue;
