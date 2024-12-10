@@ -196,9 +196,8 @@ impl<'a> Decoder<'a> {
                 b"PLTE" => todo!("What does a palette look like?"),
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),
                 b"IEND" => break,
-                foreign => {
+                _foreign => {
                     // todo! how would ancillary chunks be parsed?
-                    dbg!(String::from_utf8(foreign.to_vec())?, self.cursor, length);
                     self.cursor += length;
                     let _crc = self.read_u32()?;
                     continue;

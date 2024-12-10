@@ -2,6 +2,11 @@
 name = "png"
 version = "0.1.0"
 edition = "2021"
+default-run = "png"
+
+[[bin]]
+name = "profile"
+path = "./bin/profile.rs"
 
 [profile.release]
 debug = true

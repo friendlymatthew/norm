@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <file>"
     exit 1
@@ -12,4 +14,5 @@ if [ ! -f "$FILE" ]; then
     exit 1
 fi
 
-samply record cargo run --release "$FILE"
+cargo clean
+cargo b --release && samply record ./target/release/profile "$FILE"
