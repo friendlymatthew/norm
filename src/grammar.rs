@@ -116,7 +116,22 @@ impl Png {
         self.color_type
     }
 
-    pub fn rgba_buffer(&self) -> Vec<u32> {
+    pub fn pixel_buffer(&self) -> Vec<u32> {
+        match self.color_type {
+            ColorType::RGB => self.rgb_buffer(),
+            ColorType::RGBA => self.rgba_buffer(),
+            _ => todo!("What do other color type pixels look like?"),
+        }
+    }
+
+    fn rgb_buffer(&self) -> Vec<u32> {
+        self.image_data
+            .chunks_exact(3)
+            .map(|b| u32::from_be_bytes([0, b[0], b[1], b[2]]))
+            .collect::<Vec<u32>>()
+    }
+
+    fn rgba_buffer(&self) -> Vec<u32> {
         self.image_data
             .chunks_exact(4)
             .map(|b| u32::from_be_bytes([b[3], b[0], b[1], b[2]]))

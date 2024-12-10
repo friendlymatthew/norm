@@ -68,9 +68,16 @@ impl<'a> Decoder<'a> {
             row_start_idx += 1;
             let row = &pixel_buffer[row_start_idx..row_start_idx + bytes_per_row];
 
+            let prev_row = if i == 0 {
+                &vec![0; bytes_per_row]
+            } else {
+                &image_data[image_data.len() - bytes_per_row..]
+            };
+
             match filter_type {
                 Filter::None => {
                     // the best filter.
+                    image_data.extend_from_slice(row);
                 }
                 Filter::Sub => {
                     let mut image_row = Vec::new();
@@ -85,16 +92,62 @@ impl<'a> Decoder<'a> {
 
                     image_data.extend_from_slice(&image_row);
                 }
-                Filter::Up => todo!("What does the Up filter function look like?"),
-                Filter::Average => todo!("What does the Average filter function look like?"),
-                Filter::Paeth => todo!("What does the Paeth filter function look like?"),
+                Filter::Up => {
+                    let mut image_row = Vec::new();
+                    let mut ups = prev_row;
+
+                    for i in 0..row.len() {
+                        let filtered = row[i].wrapping_add(ups[i]);
+                        image_row.push(filtered);
+                    }
+
+                    image_data.extend_from_slice(&image_row);
+                }
+                Filter::Average => {
+                    let mut image_row = Vec::new();
+                    let mut lefts = vec![0_u8; num_channels as usize];
+                    let ups = prev_row;
+
+                    for i in 0..row.len() {
+                        let left_idx = i % num_channels as usize;
+
+                        let mut ab = (lefts[left_idx] as u16).wrapping_add(ups[i] as u16);
+                        ab /= 2;
+
+                        let filtered = row[i].wrapping_add(ab as u8);
+                        image_row.push(filtered);
+                        lefts[left_idx] = filtered;
+                    }
+
+                    image_data.extend_from_slice(&image_row);
+                }
+                Filter::Paeth => {
+                    let mut image_row = Vec::new();
+                    let mut lefts = vec![0; num_channels as usize];
+                    let ups = prev_row;
+
+                    for i in 0..row.len() {
+                        let left_idx = i % num_channels as usize;
+                        let left = lefts[left_idx];
+                        let up = ups[i];
+                        let up_left = if i < num_channels {
+                            0
+                        } else {
+                            ups[i - num_channels]
+                        };
+
+                        let filtered = row[i].wrapping_add(self.paeth(left, up, up_left));
+                        image_row.push(filtered);
+
+                        lefts[left_idx] = filtered;
+                    }
+
+                    image_data.extend_from_slice(&image_row);
+                }
             }
         }
 
-        assert_eq!(
-            image_data.len(),
-            pixel_buffer.len() - image_header.height as usize
-        );
+        ensure!(image_data.len() == pixel_buffer.len() - image_header.height as usize);
 
         Ok(Png {
             width: image_header.width,
@@ -102,6 +155,26 @@ impl<'a> Decoder<'a> {
             color_type: image_header.color_type,
             image_data,
         })
+    }
+
+    fn paeth(&self, left: u8, up: u8, up_left: u8) -> u8 {
+        let a = left as i16;
+        let b = up as i16;
+        let c = up_left as i16;
+
+        let p = a + b - c;
+
+        let pa = (p - a).abs();
+        let pb = (p - b).abs();
+        let pc = (p - c).abs();
+
+        if pa <= pb && pa <= pc {
+            left
+        } else if pb <= pc {
+            up
+        } else {
+            up_left
+        }
     }
 
     fn parse_chunks(&mut self) -> Result<Vec<Chunk>> {

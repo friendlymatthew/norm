@@ -31,7 +31,7 @@ fn main() -> Result<()> {
 
     while window.is_open() {
         window.update_with_buffer(
-            &png.rgba_buffer(),
+            &png.pixel_buffer(),
             png.width() as usize,
             png.height() as usize,
         )?;
