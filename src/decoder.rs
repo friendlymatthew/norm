@@ -59,6 +59,7 @@ impl<'a> Decoder<'a> {
 
         let mut image_data = Vec::new();
 
+        let num_channels = image_header.color_type.num_channels() as usize;
         let bytes_per_row = image_header.num_bytes_per_pixel() * image_header.width as usize;
 
         for i in 0..image_header.height as usize {
@@ -73,10 +74,10 @@ impl<'a> Decoder<'a> {
                 }
                 Filter::Sub => {
                     let mut image_row = Vec::new();
-                    let mut prevs = vec![0; image_header.color_type.num_channels() as usize];
+                    let mut prevs = vec![0; num_channels as usize];
 
                     for i in 0..row.len() {
-                        let prev_idx = i % 4;
+                        let prev_idx = i % num_channels as usize;
                         let filtered = row[i].wrapping_add(prevs[prev_idx]);
                         image_row.push(filtered);
                         prevs[prev_idx] = filtered;
@@ -124,7 +125,9 @@ impl<'a> Decoder<'a> {
                 b"IEND" => break,
                 foreign => {
                     // todo! how would ancillary chunks be parsed?
+                    dbg!(String::from_utf8(foreign.to_vec()), self.cursor, length);
                     self.cursor += length;
+                    let _crc = self.read_u32()?;
                     continue;
                 }
             };

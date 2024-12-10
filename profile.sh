@@ -12,5 +12,4 @@ if [ ! -f "$FILE" ]; then
     exit 1
 fi
 
-cargo build --release
 samply record cargo run --release "$FILE"
