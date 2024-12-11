@@ -258,16 +258,67 @@ impl<'a> Decoder<'a> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
+
     use super::*;
 
-    #[test]
-    fn test_potatoe() -> Result<()> {
-        let content = std::fs::read("./tests/potatoe.png")?;
-        let mut decoder = Decoder::new(&content);
-        let png = decoder.decode()?;
+    fn generate_blob(path: &str) -> Result<()> {
+        let content = std::fs::read(format!("{}.png", path))?;
+        let png = Decoder::new(&content).decode()?;
 
-        assert_eq!(png.height, 1158);
-        assert_eq!(png.width, 2048);
+        png.write(path)?;
+
+        Ok(())
+    }
+
+    fn compare_png(image_title: &str) -> Result<()> {
+        let expected_png = Png::read(&format!("./tests/{}", image_title))
+            .map_err(|err| anyhow!("Try regenerating the blob: {:?}", err))?;
+
+        let content = std::fs::read(format!("./tests/{}.png", image_title))?;
+        let generated_png = Decoder::new(&content).decode()?;
+
+        assert_eq!(expected_png, generated_png);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_0() -> Result<()> {
+        // generate_blob("./tests/f00n2c08")?;
+        compare_png("f00n2c08")?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_1() -> Result<()> {
+        // generate_blob("./tests/f01n2c08")?;
+        compare_png("f01n2c08")?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_2() -> Result<()> {
+        // generate_blob("./tests/f02n2c08")?;
+        compare_png("f02n2c08")?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_3() -> Result<()> {
+        // generate_blob("./tests/f03n2c08")?;
+        compare_png("f03n2c08")?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_4() -> Result<()> {
+        // generate_blob("./tests/f04n2c08")?;
+        compare_png("f04n2c08")?;
 
         Ok(())
     }

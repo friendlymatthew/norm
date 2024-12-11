@@ -1,4 +1,9 @@
-use anyhow::bail;
+use std::{
+    fs::File,
+    io::{Read, Write},
+};
+
+use anyhow::{bail, Result};
 
 #[derive(Debug)]
 pub enum Chunk<'a> {
@@ -31,7 +36,7 @@ pub struct Palette {
     pub(crate) palette: Vec<(u8, u8, u8)>,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ColorType {
     Grayscale = 0,
     RGB = 2,
@@ -95,7 +100,7 @@ impl TryFrom<u8> for Filter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Png {
     pub(crate) width: u32,
     pub(crate) height: u32,
@@ -136,6 +141,40 @@ impl Png {
             .chunks_exact(4)
             .map(|b| u32::from_be_bytes([b[3], b[0], b[1], b[2]]))
             .collect::<Vec<u32>>()
+    }
+
+    pub fn write(&self, path: &str) -> Result<()> {
+        let mut file = File::create(path)?;
+
+        file.write_all(&self.width.to_be_bytes())?;
+        file.write_all(&self.height.to_be_bytes())?;
+        file.write_all(&[self.color_type as u8])?;
+        file.write_all(&self.image_data)?;
+
+        Ok(())
+    }
+
+    pub fn read(path: &str) -> Result<Png> {
+        let mut file = File::open(path)?;
+
+        let mut width = [0; 4];
+        file.read_exact(&mut width)?;
+
+        let mut height = [0; 4];
+        file.read_exact(&mut height)?;
+
+        let mut color_type = [0];
+        file.read_exact(&mut color_type)?;
+
+        let mut image_data = Vec::new();
+        file.read_to_end(&mut image_data)?;
+
+        Ok(Png {
+            width: u32::from_be_bytes(width.try_into()?),
+            height: u32::from_be_bytes(height.try_into()?),
+            color_type: color_type[0].try_into()?,
+            image_data,
+        })
     }
 }
 
