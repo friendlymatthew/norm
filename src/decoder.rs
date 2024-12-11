@@ -48,8 +48,8 @@ impl<'a> Decoder<'a> {
         // todo!, what if ancillary chunks appear after the image data chunks?
 
         let mut zlib_decoder = ZlibDecoder::new(&compressed_stream[..]);
-        let mut pixel_buffer = Vec::new();
-        zlib_decoder.read_to_end(&mut pixel_buffer)?;
+        let mut input_buffer = Vec::new();
+        zlib_decoder.read_to_end(&mut input_buffer)?;
 
         // filter
         ensure!(
@@ -57,103 +57,102 @@ impl<'a> Decoder<'a> {
             "Only filter method 0 is defined in the standard."
         );
 
-        let mut image_data = Vec::new();
+        let mut pixel_buffer = Vec::new();
 
         let num_channels = image_header.color_type.num_channels() as usize;
         let bytes_per_row = image_header.num_bytes_per_pixel() * image_header.width as usize;
 
         for i in 0..image_header.height as usize {
             let mut row_start_idx = i * (1 + bytes_per_row);
-            let filter_type = Filter::try_from(pixel_buffer[row_start_idx])?;
+            let filter_type = Filter::try_from(input_buffer[row_start_idx])?;
             row_start_idx += 1;
-            let row = &pixel_buffer[row_start_idx..row_start_idx + bytes_per_row];
+            let row = &input_buffer[row_start_idx..row_start_idx + bytes_per_row];
 
             let prev_row = if i == 0 {
                 &vec![0; bytes_per_row]
             } else {
-                &image_data[image_data.len() - bytes_per_row..]
+                &pixel_buffer[pixel_buffer.len() - bytes_per_row..]
             };
 
             match filter_type {
                 Filter::None => {
                     // the best filter.
-                    image_data.extend_from_slice(row);
+                    pixel_buffer.extend_from_slice(row);
                 }
                 Filter::Sub => {
                     let mut image_row = Vec::new();
                     let mut prevs = vec![0; num_channels];
 
-                    for i in 0..row.len() {
-                        let prev_idx = i % num_channels;
-                        let filtered = row[i].wrapping_add(prevs[prev_idx]);
+                    for j in 0..row.len() {
+                        let prev_idx = j % num_channels;
+                        let filtered = row[j].wrapping_add(prevs[prev_idx]);
                         image_row.push(filtered);
                         prevs[prev_idx] = filtered;
                     }
 
-                    image_data.extend_from_slice(&image_row);
+                    pixel_buffer.extend_from_slice(&image_row);
                 }
                 Filter::Up => {
                     let mut image_row = Vec::new();
                     let ups = prev_row;
 
-                    for i in 0..row.len() {
-                        let filtered = row[i].wrapping_add(ups[i]);
+                    for j in 0..row.len() {
+                        let filtered = row[j].wrapping_add(ups[j]);
                         image_row.push(filtered);
                     }
 
-                    image_data.extend_from_slice(&image_row);
+                    pixel_buffer.extend_from_slice(&image_row);
                 }
                 Filter::Average => {
                     let mut image_row = Vec::new();
                     let mut lefts = vec![0_u8; num_channels];
                     let ups = prev_row;
 
-                    for i in 0..row.len() {
-                        let left_idx = i % num_channels;
+                    for j in 0..row.len() {
+                        let left_idx = j % num_channels;
 
-                        let mut ab = (lefts[left_idx] as u16).wrapping_add(ups[i] as u16);
+                        let mut ab = (lefts[left_idx] as u16).wrapping_add(ups[j] as u16);
                         ab /= 2;
 
-                        let filtered = row[i].wrapping_add(ab as u8);
+                        let filtered = row[j].wrapping_add(ab as u8);
                         image_row.push(filtered);
                         lefts[left_idx] = filtered;
                     }
 
-                    image_data.extend_from_slice(&image_row);
+                    pixel_buffer.extend_from_slice(&image_row);
                 }
                 Filter::Paeth => {
                     let mut image_row = Vec::new();
                     let mut lefts = vec![0; num_channels];
                     let ups = prev_row;
 
-                    for i in 0..row.len() {
-                        let left_idx = i % num_channels;
-                        let left = lefts[left_idx];
-                        let up = ups[i];
-                        let up_left = if i < num_channels {
+                    for j in 0..row.len() {
+                        let left_idx = j % num_channels;
+                        let up_left = if j < num_channels {
                             0
                         } else {
-                            ups[i - num_channels]
+                            ups[j - num_channels]
                         };
 
-                        let filtered = row[i].wrapping_add(self.paeth(left, up, up_left));
+                        let filtered =
+                            row[j].wrapping_add(self.paeth(lefts[left_idx], ups[j], up_left));
                         image_row.push(filtered);
 
                         lefts[left_idx] = filtered;
                     }
 
-                    image_data.extend_from_slice(&image_row);
+                    pixel_buffer.extend_from_slice(&image_row);
                 }
             }
         }
 
-        ensure!(image_data.len() == pixel_buffer.len() - image_header.height as usize);
+        ensure!(pixel_buffer.len() == input_buffer.len() - image_header.height as usize);
 
         Ok(Png {
             width: image_header.width,
             height: image_header.height,
             color_type: image_header.color_type,
-            image_data,
+            pixel_buffer,
         })
     }
 

@@ -105,7 +105,7 @@ pub struct Png {
     pub(crate) width: u32,
     pub(crate) height: u32,
     pub(crate) color_type: ColorType,
-    pub(crate) image_data: Vec<u8>,
+    pub(crate) pixel_buffer: Vec<u8>,
 }
 
 impl Png {
@@ -130,14 +130,14 @@ impl Png {
     }
 
     fn rgb_buffer(&self) -> Vec<u32> {
-        self.image_data
+        self.pixel_buffer
             .chunks_exact(3)
             .map(|b| u32::from_be_bytes([0, b[0], b[1], b[2]]))
             .collect::<Vec<u32>>()
     }
 
     fn rgba_buffer(&self) -> Vec<u32> {
-        self.image_data
+        self.pixel_buffer
             .chunks_exact(4)
             .map(|b| u32::from_be_bytes([b[3], b[0], b[1], b[2]]))
             .collect::<Vec<u32>>()
@@ -149,7 +149,7 @@ impl Png {
         file.write_all(&self.width.to_be_bytes())?;
         file.write_all(&self.height.to_be_bytes())?;
         file.write_all(&[self.color_type as u8])?;
-        file.write_all(&self.image_data)?;
+        file.write_all(&self.pixel_buffer)?;
 
         Ok(())
     }
@@ -166,14 +166,14 @@ impl Png {
         let mut color_type = [0];
         file.read_exact(&mut color_type)?;
 
-        let mut image_data = Vec::new();
-        file.read_to_end(&mut image_data)?;
+        let mut pixel_buffer = Vec::new();
+        file.read_to_end(&mut pixel_buffer)?;
 
         Ok(Png {
             width: u32::from_be_bytes(width.try_into()?),
             height: u32::from_be_bytes(height.try_into()?),
             color_type: color_type[0].try_into()?,
-            image_data,
+            pixel_buffer,
         })
     }
 }

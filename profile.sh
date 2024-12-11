@@ -14,5 +14,4 @@ if [ ! -f "$FILE" ]; then
     exit 1
 fi
 
-cargo clean
 cargo b --release && samply record ./target/release/profile "$FILE"
