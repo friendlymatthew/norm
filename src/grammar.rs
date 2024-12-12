@@ -36,7 +36,7 @@ pub struct Palette {
     pub(crate) palette: Vec<(u8, u8, u8)>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ColorType {
     Grayscale = 0,
     RGB = 2,
@@ -100,7 +100,7 @@ impl TryFrom<u8> for Filter {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Png {
     pub(crate) width: u32,
     pub(crate) height: u32,
@@ -154,7 +154,7 @@ impl Png {
         Ok(())
     }
 
-    pub fn read(path: &str) -> Result<Png> {
+    pub fn read(path: &str) -> Result<Self> {
         let mut file = File::open(path)?;
 
         let mut width = [0; 4];
@@ -169,9 +169,9 @@ impl Png {
         let mut pixel_buffer = Vec::new();
         file.read_to_end(&mut pixel_buffer)?;
 
-        Ok(Png {
-            width: u32::from_be_bytes(width.try_into()?),
-            height: u32::from_be_bytes(height.try_into()?),
+        Ok(Self {
+            width: u32::from_be_bytes(width),
+            height: u32::from_be_bytes(height),
             color_type: color_type[0].try_into()?,
             pixel_buffer,
         })
