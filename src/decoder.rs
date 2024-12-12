@@ -57,7 +57,7 @@ impl<'a> Decoder<'a> {
             "Only filter method 0 is defined in the standard."
         );
 
-        let mut pixel_buffer = Vec::new();
+        let mut pixel_buffer = vec![0_u8; input_buffer.len() - image_header.height as usize];
 
         let num_channels = image_header.color_type.num_channels() as usize;
         let bytes_per_row = image_header.num_bytes_per_pixel() * image_header.width as usize;
@@ -68,61 +68,51 @@ impl<'a> Decoder<'a> {
             row_start_idx += 1;
             let row = &input_buffer[row_start_idx..row_start_idx + bytes_per_row];
 
+            let pixel_row_start = i * bytes_per_row;
+
             let prev_row = if i == 0 {
                 &vec![0; bytes_per_row]
             } else {
-                &pixel_buffer[pixel_buffer.len() - bytes_per_row..]
+                &pixel_buffer[(i - 1) * bytes_per_row..pixel_row_start].to_vec()
             };
 
             match filter_type {
                 Filter::None => {
                     // the best filter.
-                    pixel_buffer.extend_from_slice(row);
+                    pixel_buffer[pixel_row_start..pixel_row_start + bytes_per_row]
+                        .copy_from_slice(row);
                 }
                 Filter::Sub => {
-                    let mut image_row = Vec::new();
                     let mut prevs = vec![0; num_channels];
 
                     for j in 0..row.len() {
                         let prev_idx = j % num_channels;
                         let filtered = row[j].wrapping_add(prevs[prev_idx]);
-                        image_row.push(filtered);
+                        pixel_buffer[pixel_row_start + j] = filtered;
                         prevs[prev_idx] = filtered;
                     }
-
-                    pixel_buffer.extend_from_slice(&image_row);
                 }
                 Filter::Up => {
-                    let mut image_row = Vec::new();
-                    let ups = prev_row;
-
                     for j in 0..row.len() {
-                        let filtered = row[j].wrapping_add(ups[j]);
-                        image_row.push(filtered);
+                        let filtered = row[j].wrapping_add(prev_row[j]);
+                        pixel_buffer[pixel_row_start + j] = filtered;
                     }
-
-                    pixel_buffer.extend_from_slice(&image_row);
                 }
                 Filter::Average => {
-                    let mut image_row = Vec::new();
                     let mut lefts = vec![0_u8; num_channels];
-                    let ups = prev_row;
 
                     for j in 0..row.len() {
                         let left_idx = j % num_channels;
 
-                        let mut ab = (lefts[left_idx] as u16).wrapping_add(ups[j] as u16);
+                        let mut ab = (lefts[left_idx] as u16).wrapping_add(prev_row[j] as u16);
                         ab /= 2;
 
                         let filtered = row[j].wrapping_add(ab as u8);
-                        image_row.push(filtered);
+                        pixel_buffer[pixel_row_start + j] = filtered;
                         lefts[left_idx] = filtered;
                     }
-
-                    pixel_buffer.extend_from_slice(&image_row);
                 }
                 Filter::Paeth => {
-                    let mut image_row = Vec::new();
                     let mut lefts = vec![0; num_channels];
                     let ups = prev_row;
 
@@ -136,12 +126,11 @@ impl<'a> Decoder<'a> {
 
                         let filtered =
                             row[j].wrapping_add(self.paeth(lefts[left_idx], ups[j], up_left));
-                        image_row.push(filtered);
+
+                        pixel_buffer[pixel_row_start + j] = filtered;
 
                         lefts[left_idx] = filtered;
                     }
-
-                    pixel_buffer.extend_from_slice(&image_row);
                 }
             }
         }
