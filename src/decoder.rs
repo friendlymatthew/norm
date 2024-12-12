@@ -70,12 +70,6 @@ impl<'a> Decoder<'a> {
 
             let pixel_row_start = i * bytes_per_row;
 
-            let prev_row = if i == 0 {
-                &vec![0; bytes_per_row]
-            } else {
-                &pixel_buffer[(i - 1) * bytes_per_row..pixel_row_start].to_vec()
-            };
-
             match filter_type {
                 Filter::None => {
                     // the best filter.
@@ -83,59 +77,73 @@ impl<'a> Decoder<'a> {
                         .copy_from_slice(row);
                 }
                 Filter::Sub => {
-                    let mut prevs = vec![0; num_channels];
-
                     for j in 0..row.len() {
-                        let prev_idx = j % num_channels;
-                        let filtered = row[j].wrapping_add(prevs[prev_idx]);
+                        let filtered = row[j].wrapping_add(if j < num_channels {
+                            0
+                        } else {
+                            pixel_buffer[pixel_row_start + j - num_channels]
+                        });
+
                         pixel_buffer[pixel_row_start + j] = filtered;
-                        prevs[prev_idx] = filtered;
                     }
                 }
                 Filter::Up => {
                     for j in 0..row.len() {
-                        let filtered = row[j].wrapping_add(prev_row[j]);
+                        let filtered = row[j].wrapping_add(if pixel_row_start < bytes_per_row {
+                            0
+                        } else {
+                            pixel_buffer[pixel_row_start - bytes_per_row + j]
+                        });
                         pixel_buffer[pixel_row_start + j] = filtered;
                     }
                 }
                 Filter::Average => {
-                    let mut lefts = vec![0_u8; num_channels];
-
                     for j in 0..row.len() {
-                        let left_idx = j % num_channels;
-
-                        let mut ab = (lefts[left_idx] as u16).wrapping_add(prev_row[j] as u16);
+                        let mut ab = (if j < num_channels {
+                            0
+                        } else {
+                            pixel_buffer[pixel_row_start + j - num_channels]
+                        } as u16)
+                            .wrapping_add(if pixel_row_start < bytes_per_row {
+                                0
+                            } else {
+                                pixel_buffer[pixel_row_start - bytes_per_row + j]
+                            } as u16);
                         ab /= 2;
 
                         let filtered = row[j].wrapping_add(ab as u8);
                         pixel_buffer[pixel_row_start + j] = filtered;
-                        lefts[left_idx] = filtered;
                     }
                 }
                 Filter::Paeth => {
-                    let mut lefts = vec![0; num_channels];
-                    let ups = prev_row;
-
                     for j in 0..row.len() {
-                        let left_idx = j % num_channels;
-                        let up_left = if j < num_channels {
+                        let left = if j < num_channels {
                             0
                         } else {
-                            ups[j - num_channels]
+                            pixel_buffer[pixel_row_start + j - num_channels]
                         };
 
-                        let filtered =
-                            row[j].wrapping_add(self.paeth(lefts[left_idx], ups[j], up_left));
+                        let up_left = if j < num_channels || pixel_row_start < bytes_per_row {
+                            0
+                        } else {
+                            pixel_buffer[pixel_row_start - bytes_per_row + j - num_channels]
+                        };
+
+                        let filtered = row[j].wrapping_add(self.paeth(
+                            left,
+                            if pixel_row_start < bytes_per_row {
+                                0
+                            } else {
+                                pixel_buffer[pixel_row_start - bytes_per_row + j]
+                            },
+                            up_left,
+                        ));
 
                         pixel_buffer[pixel_row_start + j] = filtered;
-
-                        lefts[left_idx] = filtered;
                     }
                 }
             }
         }
-
-        ensure!(pixel_buffer.len() == input_buffer.len() - image_header.height as usize);
 
         Ok(Png {
             width: image_header.width,
