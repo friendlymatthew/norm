@@ -1,3 +1,4 @@
+#[cfg(test)]
 use std::{
     fs::File,
     io::{Read, Write},
@@ -31,6 +32,7 @@ impl ImageHeader {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Palette {
     pub(crate) palette: Vec<(u8, u8, u8)>,
@@ -143,7 +145,9 @@ impl Png {
             .collect::<Vec<u32>>()
     }
 
-    pub fn write(&self, path: &str) -> Result<()> {
+    #[cfg(test)]
+    #[allow(dead_code)]
+    pub(crate) fn write_to_binary_blob(&self, path: &str) -> Result<()> {
         let mut file = File::create(path)?;
 
         file.write_all(&self.width.to_be_bytes())?;
@@ -154,7 +158,8 @@ impl Png {
         Ok(())
     }
 
-    pub fn read(path: &str) -> Result<Self> {
+    #[cfg(test)]
+    pub(crate) fn read_from_binary_blob(path: &str) -> Result<Self> {
         let mut file = File::open(path)?;
 
         let mut width = [0; 4];

@@ -23,7 +23,6 @@ impl<'a> Decoder<'a> {
         );
 
         let chunks = self.parse_chunks()?;
-
         let mut chunks = chunks.into_iter();
 
         let Some(Chunk::ImageHeader(image_header)) = chunks.next() else {
@@ -77,41 +76,56 @@ impl<'a> Decoder<'a> {
                         .copy_from_slice(row);
                 }
                 Filter::Sub => {
-                    for j in 0..row.len() {
-                        let filtered = row[j].wrapping_add(if j < num_channels {
-                            0
-                        } else {
-                            pixel_buffer[pixel_row_start + j - num_channels]
-                        });
+                    pixel_buffer[pixel_row_start..pixel_row_start + num_channels]
+                        .copy_from_slice(&row[0..num_channels]);
+
+                    for j in num_channels..bytes_per_row {
+                        let filtered =
+                            row[j].wrapping_add(pixel_buffer[pixel_row_start + j - num_channels]);
 
                         pixel_buffer[pixel_row_start + j] = filtered;
                     }
                 }
                 Filter::Up => {
-                    for j in 0..row.len() {
-                        let filtered = row[j].wrapping_add(if pixel_row_start < bytes_per_row {
-                            0
-                        } else {
-                            pixel_buffer[pixel_row_start - bytes_per_row + j]
-                        });
+                    if pixel_row_start < bytes_per_row {
+                        pixel_buffer[pixel_row_start..pixel_row_start + bytes_per_row]
+                            .copy_from_slice(row);
+
+                        continue;
+                    }
+
+                    for j in 0..bytes_per_row {
+                        let filtered =
+                            row[j].wrapping_add(pixel_buffer[pixel_row_start - bytes_per_row + j]);
+
                         pixel_buffer[pixel_row_start + j] = filtered;
                     }
                 }
                 Filter::Average => {
-                    for j in 0..row.len() {
-                        let mut ab = (if j < num_channels {
-                            0
-                        } else {
-                            pixel_buffer[pixel_row_start + j - num_channels]
-                        } as u16)
-                            .wrapping_add(if pixel_row_start < bytes_per_row {
-                                0
-                            } else {
-                                pixel_buffer[pixel_row_start - bytes_per_row + j]
-                            } as u16);
-                        ab /= 2;
+                    let has_prev_row = pixel_row_start >= bytes_per_row;
 
-                        let filtered = row[j].wrapping_add(ab as u8);
+                    if has_prev_row {
+                        for j in 0..num_channels {
+                            pixel_buffer[pixel_row_start + j] = row[j].wrapping_add(
+                                (pixel_buffer[pixel_row_start - bytes_per_row + j] as u16 / 2)
+                                    as u8,
+                            )
+                        }
+                    } else {
+                        pixel_buffer[pixel_row_start..pixel_row_start + num_channels]
+                            .copy_from_slice(&row[0..num_channels]);
+                    }
+
+                    for j in num_channels..bytes_per_row {
+                        let mut a = pixel_buffer[pixel_row_start + j - num_channels] as u16;
+
+                        if has_prev_row {
+                            a += pixel_buffer[pixel_row_start - bytes_per_row + j] as u16;
+                        }
+
+                        a /= 2;
+
+                        let filtered = row[j].wrapping_add(a as u8);
                         pixel_buffer[pixel_row_start + j] = filtered;
                     }
                 }
@@ -260,17 +274,18 @@ mod tests {
 
     use super::*;
 
+    #[allow(dead_code)]
     fn generate_blob(path: &str) -> Result<()> {
         let content = std::fs::read(format!("{}.png", path))?;
         let png = Decoder::new(&content).decode()?;
 
-        png.write(path)?;
+        png.write_to_binary_blob(path)?;
 
         Ok(())
     }
 
     fn compare_png(image_title: &str) -> Result<()> {
-        let expected_png = Png::read(&format!("./tests/{}", image_title))
+        let expected_png = Png::read_from_binary_blob(&format!("./tests/{}", image_title))
             .map_err(|err| anyhow!("Try regenerating the blob: {:?}", err))?;
 
         let content = std::fs::read(format!("./tests/{}.png", image_title))?;
