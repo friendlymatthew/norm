@@ -1,6 +1,6 @@
-use std::io::Read;
+use std::{collections::BTreeMap, io::Read};
 
-use anyhow::{bail, ensure, Result};
+use anyhow::{anyhow, bail, ensure, Result};
 use flate2::read::ZlibDecoder;
 
 use crate::grammar::{Chunk, Filter, ImageHeader, Png};
@@ -192,22 +192,61 @@ impl<'a> Decoder<'a> {
     fn parse_chunks(&mut self) -> Result<Vec<Chunk>> {
         let mut chunks = Vec::new();
 
+        let mut text_map = BTreeMap::new();
+
         loop {
             let length = self.read_u32()? as usize;
 
             let chunk = match self.read_slice(4)? {
-                b"IHDR" => Chunk::ImageHeader(ImageHeader {
-                    width: self.read_u32()?,
-                    height: self.read_u32()?,
-                    bit_depth: self.read_u8()?,
-                    color_type: self.read_u8()?.try_into()?,
-                    _compression_method: self.read_u8()?,
-                    filter_method: self.read_u8()?,
-                    _interlace_method: self.read_u8()? == 1,
-                }),
+                b"IHDR" => {
+                    ensure!(chunks.is_empty(), "ImageHeader chunk must appear first.");
+
+                    Chunk::ImageHeader(ImageHeader {
+                        width: self.read_u32()?,
+                        height: self.read_u32()?,
+                        bit_depth: self.read_u8()?,
+                        color_type: self.read_u8()?.try_into()?,
+                        _compression_method: self.read_u8()?,
+                        filter_method: self.read_u8()?,
+                        _interlace_method: self.read_u8()? == 1,
+                    })
+                }
                 b"PLTE" => todo!("What does a palette look like?"),
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),
                 b"IEND" => break,
+                b"tEXt" => {
+                    let mut split = self.read_slice(length)?.split(|x| *x == 0x00);
+
+                    if let (Some(keyword), Some(text_string)) = (split.next(), split.next()) {
+                        text_map
+                            .entry(keyword)
+                            .and_modify(|e| *e = text_string)
+                            .or_insert_with(|| text_string);
+                    } else {
+                        bail!("Invalid text chunk");
+                    };
+
+                    let _crc = self.read_u32()?;
+                    continue;
+                }
+                // b"zTXt" => {
+                //     let mut split = self.read_slice(length)?.split(|x| *x == 0x00);
+
+                //     if let (Some(keyword), Some(compressed_text)) = (split.next(), split.next()) {
+                //         let _compression_method = compressed_text[0];
+
+                //         let mut zlib_decoder = ZlibDecoder::new(&compressed_text[1..]);
+                //         let mut text_string = Vec::new();
+                //         zlib_decoder.read_to_end(&mut text_string)?;
+
+                //         text_map.entry(keyword).and_modify(|e| e.push(text_string));
+                //     } else {
+                //         bail!("Invalid text chunk");
+                //     };
+
+                //     let _crc = self.read_u32()?;
+                //     continue;
+                // }
                 _foreign => {
                     // todo! how would ancillary chunks be parsed?
                     self.cursor += length;
@@ -219,6 +258,10 @@ impl<'a> Decoder<'a> {
             let _crc = self.read_u32()?;
 
             chunks.push(chunk);
+        }
+
+        if !text_map.is_empty() {
+            chunks.push(Chunk::TextData(text_map));
         }
 
         Ok(chunks)

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 #[cfg(test)]
 use std::{
     fs::File,
@@ -11,6 +12,7 @@ pub enum Chunk<'a> {
     ImageHeader(ImageHeader),
     Palette(Palette),
     ImageData(&'a [u8]),
+    TextData(BTreeMap<&'a [u8], &'a [u8]>),
 }
 
 #[derive(Debug)]
