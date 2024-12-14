@@ -134,8 +134,16 @@ impl Png {
         match self.color_type {
             ColorType::RGB => self.rgb_buffer(),
             ColorType::RGBA => self.rgba_buffer(),
+            ColorType::Grayscale => self.grayscale_buffer(),
             _ => todo!("What do other color type pixels look like?"),
         }
+    }
+
+    fn grayscale_buffer(&self) -> Vec<u32> {
+        self.pixel_buffer
+            .iter()
+            .map(|&b| u32::from_be_bytes([0, b, b, b]))
+            .collect::<Vec<u32>>()
     }
 
     fn rgb_buffer(&self) -> Vec<u32> {

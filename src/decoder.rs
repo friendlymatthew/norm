@@ -378,4 +378,12 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_grayscale_8bit() -> Result<()> {
+        // generate_blob("./tests/basn0g08")?;
+        compare_png("basn0g08")?;
+
+        Ok(())
+    }
 }
