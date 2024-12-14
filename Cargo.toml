@@ -8,9 +8,6 @@ default-run = "png"
 name = "profile"
 path = "./bin/profile.rs"
 
-[[bin]]
-name = "minifb"
-path = "./bin/minifb.rs"
 
 [profile.release]
 debug = true

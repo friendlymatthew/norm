@@ -121,6 +121,11 @@ impl Png {
         self.height
     }
 
+    /// The dimensions of the image (width, height).
+    pub const fn dimension(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
     pub const fn color_type(&self) -> ColorType {
         self.color_type
     }

@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
-use png::Engine;
-use winit::event_loop::{ControlFlow, EventLoop};
+use minifb::{Window, WindowOptions};
+use png::Decoder;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -13,13 +13,27 @@ struct Args {
 
 fn main() -> Result<()> {
     let Args { image_path } = Args::parse();
+
+    let image_path = image_path
+        .to_str()
+        .ok_or(anyhow!("Failed to find file {:?} to render.", image_path))?;
+
     let content = std::fs::read(image_path)?;
+    let mut decoder = Decoder::new(&content);
+    let png = decoder.decode()?;
 
-    let event_loop = EventLoop::new()?;
-    event_loop.set_control_flow(ControlFlow::Wait);
+    let (width, height) = png.dimension();
 
-    let mut engine = Engine::new(&content)?;
-    event_loop.run_app(&mut engine)?;
+    let mut window = Window::new(
+        "PNG renderer",
+        width as usize,
+        height as usize,
+        WindowOptions::default(),
+    )?;
+
+    while window.is_open() {
+        window.update_with_buffer(&png.pixel_buffer(), width as usize, height as usize)?;
+    }
 
     Ok(())
 }
