@@ -1,4 +1,9 @@
 #![warn(clippy::nursery)]
 
-pub mod decoder;
-pub mod grammar;
+mod decoder;
+mod grammar;
+mod renderer;
+
+pub use decoder::*;
+pub use grammar::*;
+pub use renderer::*;

@@ -1,9 +1,9 @@
 use std::{collections::BTreeMap, io::Read};
 
-use anyhow::{anyhow, bail, ensure, Result};
+use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
 
-use crate::grammar::{Chunk, Filter, ImageHeader, Png};
+use crate::{Chunk, Filter, ImageHeader, Png};
 
 #[derive(Debug)]
 pub struct Decoder<'a> {

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use minifb::{Window, WindowOptions};
 use png::Decoder;
 
 #[derive(Debug, Parser)]
@@ -19,7 +20,22 @@ fn main() -> Result<()> {
 
     let content = std::fs::read(image_path)?;
     let mut decoder = Decoder::new(&content);
-    let _ = decoder.decode()?;
+    let png = decoder.decode()?;
+
+    let mut window = Window::new(
+        "Potatoe",
+        png.width() as usize,
+        png.height() as usize,
+        WindowOptions::default(),
+    )?;
+
+    while window.is_open() {
+        window.update_with_buffer(
+            &png.pixel_buffer(),
+            png.width() as usize,
+            png.height() as usize,
+        )?;
+    }
 
     Ok(())
 }
