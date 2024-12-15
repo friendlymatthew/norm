@@ -129,6 +129,7 @@ impl Png {
             ColorType::RGB => self.rgb_buffer(),
             ColorType::RGBA => self.rgba_buffer(),
             ColorType::Grayscale => self.grayscale_buffer(),
+            ColorType::GrayscaleAlpha => self.grayscale_alpha_buffer(),
             _ => todo!("What do other color type pixels look like?"),
         }
     }
@@ -137,6 +138,13 @@ impl Png {
         self.pixel_buffer
             .iter()
             .map(|&b| u32::from_be_bytes([0, b, b, b]))
+            .collect::<Vec<u32>>()
+    }
+
+    fn grayscale_alpha_buffer(&self) -> Vec<u32> {
+        self.pixel_buffer
+            .chunks_exact(2)
+            .map(|b| u32::from_be_bytes([b[1], b[0], b[0], b[0]]))
             .collect::<Vec<u32>>()
     }
 
