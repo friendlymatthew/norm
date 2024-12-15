@@ -189,6 +189,30 @@ impl<'a> Decoder<'a> {
         }
     }
 
+    #[cfg(all(target_arch = "aarch64", target_feature = "crc"))]
+    fn validate_crc_aarch64(
+        &self,
+        chunk_type: &'a [u8],
+        chunk_data: &'a [u8],
+        expected_crc: u32,
+    ) -> bool {
+        use std::arch::aarch64::__crc32b;
+
+        let mut crc = 0xffff_ffff;
+
+        for &byte in chunk_type {
+            crc = unsafe { __crc32b(crc, byte) };
+        }
+
+        for &byte in chunk_data {
+            crc = unsafe { __crc32b(crc, byte) };
+        }
+
+        crc = !crc;
+
+        crc == expected_crc
+    }
+
     fn parse_chunks(&mut self) -> Result<Vec<Chunk>> {
         let mut chunks = Vec::new();
 
@@ -196,6 +220,25 @@ impl<'a> Decoder<'a> {
 
         loop {
             let length = self.read_u32()? as usize;
+
+            {
+                let expected_crc = u32::from_be_bytes(
+                    self.data[self.cursor + 4 + length..self.cursor + 4 + length + 4].try_into()?,
+                );
+
+                if cfg!(all(target_arch = "aarch64", target_feature = "crc")) {
+                    ensure!(
+                        self.validate_crc_aarch64(
+                            &self.data[self.cursor..self.cursor + 4],
+                            &self.data[self.cursor + 4..self.cursor + 4 + length],
+                            expected_crc
+                        ),
+                        "Mismatched "
+                    );
+                } else {
+                    todo!("What does a software implementation of CRC look like?");
+                }
+            }
 
             let chunk = match self.read_slice(4)? {
                 b"IHDR" => {
@@ -250,12 +293,12 @@ impl<'a> Decoder<'a> {
                 _foreign => {
                     // todo! how would ancillary chunks be parsed?
                     self.cursor += length;
-                    let _crc = self.read_u32()?;
+                    self.cursor += 4;
                     continue;
                 }
             };
 
-            let _crc = self.read_u32()?;
+            self.cursor += 4;
 
             chunks.push(chunk);
         }
