@@ -13,6 +13,7 @@ pub enum Chunk<'a> {
     Palette(ChunksExact<'a, u8>),
     ImageData(&'a [u8]),
     TextData(BTreeMap<&'a [u8], &'a [u8]>),
+    Gamma(u32),
 }
 
 #[derive(Debug)]

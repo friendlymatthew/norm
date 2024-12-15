@@ -56,6 +56,8 @@ impl<'a> Decoder<'a> {
             "Only filter method 0 is defined in the standard."
         );
 
+        ensure!(!input_buffer.is_empty(), "Input buffer is empty.");
+
         let mut pixel_buffer = vec![0_u8; input_buffer.len() - image_header.height as usize];
 
         let num_channels = image_header.color_type.num_channels() as usize;
@@ -297,6 +299,7 @@ impl<'a> Decoder<'a> {
                     self.skip_crc()?;
                     continue;
                 }
+                b"gAMA" => Chunk::Gamma(self.read_u32()?),
                 // b"zTXt" => {
                 //     let mut split = self.read_slice(length)?.split(|x| *x == 0x00);
 
@@ -450,14 +453,6 @@ mod tests {
     fn test_filter_4() -> Result<()> {
         // generate_blob("./tests/f04n2c08")?;
         compare_png("f04n2c08")?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_grayscale_8bit() -> Result<()> {
-        // generate_blob("./tests/basn0g08")?;
-        compare_png("basn0g08")?;
 
         Ok(())
     }
