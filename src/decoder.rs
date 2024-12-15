@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, io::Read};
 use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
 
-use crate::{Chunk, Filter, ImageHeader, Png};
+use crate::{Chunk, ColorType, Filter, ImageHeader, Png};
 
 #[derive(Debug)]
 pub struct Decoder<'a> {
@@ -254,7 +254,32 @@ impl<'a> Decoder<'a> {
                         _interlace_method: self.read_u8()? == 1,
                     })
                 }
-                b"PLTE" => todo!("What does a palette look like?"),
+                b"PLTE" => {
+                    ensure!(length % 3 == 0, "Chunk length not divisible by 3.");
+                    ensure!(
+                        !chunks.is_empty(),
+                        "Empty chunks. Expected ImageHeader chunk."
+                    );
+
+                    let Chunk::ImageHeader(image_header) = &chunks[0] else {
+                        bail!("Expected ImageHeader chunk.");
+                    };
+
+                    let color_type = image_header.color_type;
+
+                    ensure!(
+                        !matches!(color_type, ColorType::Grayscale)
+                            && !matches!(color_type, ColorType::GrayscaleAlpha)
+                    );
+
+                    if color_type != ColorType::Palette {
+                        self.skip_crc()?;
+                        continue;
+                    }
+
+                    let entries = self.read_slice(length)?.chunks_exact(3);
+                    Chunk::Palette(entries)
+                }
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),
                 b"IEND" => break,
                 b"tEXt" => {
@@ -269,7 +294,7 @@ impl<'a> Decoder<'a> {
                         bail!("Invalid text chunk");
                     };
 
-                    let _crc = self.read_u32()?;
+                    self.skip_crc()?;
                     continue;
                 }
                 // b"zTXt" => {
@@ -293,12 +318,12 @@ impl<'a> Decoder<'a> {
                 _foreign => {
                     // todo! how would ancillary chunks be parsed?
                     self.cursor += length;
-                    self.cursor += 4;
+                    self.skip_crc()?;
                     continue;
                 }
             };
 
-            self.cursor += 4;
+            self.skip_crc()?;
 
             chunks.push(chunk);
         }
@@ -308,6 +333,13 @@ impl<'a> Decoder<'a> {
         }
 
         Ok(chunks)
+    }
+
+    fn skip_crc(&mut self) -> Result<()> {
+        self.eof(4)?;
+        self.cursor += 4;
+
+        Ok(())
     }
 
     fn eof(&self, len: usize) -> Result<()> {

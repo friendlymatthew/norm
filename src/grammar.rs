@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, slice::ChunksExact};
 #[cfg(test)]
 use std::{
     fs::File,
@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 #[derive(Debug)]
 pub enum Chunk<'a> {
     ImageHeader(ImageHeader),
-    Palette(Palette),
+    Palette(ChunksExact<'a, u8>),
     ImageData(&'a [u8]),
     TextData(BTreeMap<&'a [u8], &'a [u8]>),
 }
@@ -32,12 +32,6 @@ impl ImageHeader {
     pub(crate) const fn num_bytes_per_pixel(&self) -> usize {
         (self.color_type.num_channels() * self.bit_depth) as usize / 8
     }
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct Palette {
-    pub(crate) palette: Vec<(u8, u8, u8)>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
