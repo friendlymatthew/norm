@@ -393,7 +393,11 @@ impl<'a> Decoder<'a> {
 mod tests {
     use anyhow::anyhow;
 
+    use crate::test_file_parser::TestFileParser;
+
     use super::*;
+
+    const TEST_FILE_PARSER: TestFileParser = TestFileParser;
 
     #[allow(dead_code)]
     fn generate_blob(path: &str) -> Result<()> {
@@ -412,7 +416,10 @@ mod tests {
         let content = std::fs::read(format!("./tests/{}.png", image_title))?;
         let generated_png = Decoder::new(&content).decode()?;
 
-        assert_eq!(expected_png, generated_png);
+        if expected_png != generated_png {
+            let tf = TEST_FILE_PARSER.parse(format!("./tests/{}.png", image_title).into())?;
+            assert_eq!(expected_png, generated_png, "Failed test: {:?}", tf);
+        }
 
         Ok(())
     }
