@@ -3,7 +3,10 @@ use std::{collections::BTreeMap, io::Read};
 use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
 
-use crate::{Chunk, ColorType, Filter, ImageHeader, Png};
+use crate::{
+    crc32::{compute_crc_aarch64, compute_crc_fast},
+    Chunk, ColorType, Filter, ImageHeader, Png,
+};
 
 #[derive(Debug)]
 pub struct Decoder<'a> {
@@ -191,28 +194,14 @@ impl<'a> Decoder<'a> {
         }
     }
 
-    #[cfg(all(target_arch = "aarch64", target_feature = "crc"))]
-    fn validate_crc_aarch64(
-        &self,
-        chunk_type: &'a [u8],
-        chunk_data: &'a [u8],
-        expected_crc: u32,
-    ) -> bool {
-        use std::arch::aarch64::__crc32b;
+    fn validate_crc(&self, chunk_type: &'a [u8], chunk_data: &'a [u8], expected_crc: u32) -> bool {
+        let computed_crc = if cfg!(all(target_arch = "aarch64", target_feature = "crc")) {
+            compute_crc_aarch64(&chunk_type, &chunk_data)
+        } else {
+            compute_crc_fast(&chunk_type, &chunk_data)
+        };
 
-        let mut crc = 0xffff_ffff;
-
-        for &byte in chunk_type {
-            crc = unsafe { __crc32b(crc, byte) };
-        }
-
-        for &byte in chunk_data {
-            crc = unsafe { __crc32b(crc, byte) };
-        }
-
-        crc = !crc;
-
-        crc == expected_crc
+        computed_crc == expected_crc
     }
 
     fn parse_chunks(&mut self) -> Result<Vec<Chunk>> {
@@ -228,18 +217,11 @@ impl<'a> Decoder<'a> {
                     self.data[self.cursor + 4 + length..self.cursor + 4 + length + 4].try_into()?,
                 );
 
-                if cfg!(all(target_arch = "aarch64", target_feature = "crc")) {
-                    ensure!(
-                        self.validate_crc_aarch64(
-                            &self.data[self.cursor..self.cursor + 4],
-                            &self.data[self.cursor + 4..self.cursor + 4 + length],
-                            expected_crc
-                        ),
-                        "Mismatched "
-                    );
-                } else {
-                    todo!("What does a software implementation of CRC look like?");
-                }
+                ensure!(self.validate_crc(
+                    &self.data[self.cursor..self.cursor + 4],
+                    &self.data[self.cursor + 4..self.cursor + 4 + length],
+                    expected_crc
+                ));
             }
 
             let chunk = match self.read_slice(4)? {
