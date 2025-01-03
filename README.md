@@ -7,7 +7,7 @@ This project aims to provide a PNG decoder with SIMD-accelerated filters and a f
 To render an image, simply run `cargo run <image_path>`. For example:
 
 ```bash
-cargo run ./tests/potatoe.png
+cargo run ./potatoe.png
 ```
 
 ## Profile
@@ -15,7 +15,7 @@ cargo run ./tests/potatoe.png
 To profile `png`, the `profile.sh` script serves as syntatic sugar for running samply's profiling.
 
 ```bash
-./profile.sh ./tests/reagan.png
+./profile.sh ./reagan.png
 ```
 
 ## Reading
