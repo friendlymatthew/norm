@@ -3,10 +3,7 @@ use std::{collections::BTreeMap, io::Read};
 use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
 
-use crate::{
-    crc32::{compute_crc_aarch64, compute_crc_fast},
-    Chunk, ColorType, Filter, ImageHeader, Png,
-};
+use crate::{crc32::compute_crc, Chunk, ColorType, Filter, ImageHeader, Png};
 
 #[derive(Debug)]
 pub struct Decoder<'a> {
@@ -195,11 +192,7 @@ impl<'a> Decoder<'a> {
     }
 
     fn validate_crc(&self, chunk_type: &'a [u8], chunk_data: &'a [u8], expected_crc: u32) -> bool {
-        let computed_crc = if cfg!(all(target_arch = "aarch64", target_feature = "crc")) {
-            compute_crc_aarch64(chunk_type, chunk_data)
-        } else {
-            compute_crc_fast(chunk_type, chunk_data)
-        };
+        let computed_crc = compute_crc(chunk_type, chunk_data);
 
         computed_crc == expected_crc
     }
