@@ -196,9 +196,9 @@ impl<'a> Decoder<'a> {
 
     fn validate_crc(&self, chunk_type: &'a [u8], chunk_data: &'a [u8], expected_crc: u32) -> bool {
         let computed_crc = if cfg!(all(target_arch = "aarch64", target_feature = "crc")) {
-            compute_crc_aarch64(&chunk_type, &chunk_data)
+            compute_crc_aarch64(chunk_type, chunk_data)
         } else {
-            compute_crc_fast(&chunk_type, &chunk_data)
+            compute_crc_fast(chunk_type, chunk_data)
         };
 
         computed_crc == expected_crc
