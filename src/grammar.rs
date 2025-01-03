@@ -132,8 +132,7 @@ impl Png {
                 let b = self
                     .pixel_buffer
                     .chunks_exact(3)
-                    .map(|b| [b[0], b[1], b[2], 0])
-                    .flatten()
+                    .flat_map(|b| [b[0], b[1], b[2], 0])
                     .collect::<Vec<_>>();
 
                 Cow::from(b)

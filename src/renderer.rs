@@ -19,10 +19,10 @@ struct Vertex {
 }
 
 impl Vertex {
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
+    const fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {
@@ -271,7 +271,7 @@ impl<'a> State<'a> {
         }
     }
 
-    pub fn window(&self) -> &Window {
+    pub const fn window(&self) -> &Window {
         self.window
     }
 
@@ -285,11 +285,11 @@ impl<'a> State<'a> {
     }
 
     #[allow(unused_variables)]
-    fn input(&self, event: &WindowEvent) -> bool {
+    const fn input(&self, event: &WindowEvent) -> bool {
         false
     }
 
-    fn update(&self) {}
+    const fn update(&self) {}
 
     fn render(&self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
@@ -338,6 +338,7 @@ impl<'a> State<'a> {
     }
 }
 
+#[allow(clippy::future_not_send)]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run(png: Png) {
     cfg_if::cfg_if! {
