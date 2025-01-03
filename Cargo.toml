@@ -13,8 +13,8 @@ path = "./bin/profile.rs"
 debug = true
 
 [dependencies]
-anyhow = "1.0.94"
-clap = { version = "4.5.23", features = ["derive"] }
 crc32fast = "1.4.2"
 flate2 = "1.0.35"
+
+anyhow = "1.0.94"
 minifb = "0.27.0"
