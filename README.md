@@ -1,14 +1,16 @@
 # png
 
-This project aims to provide a PNG decoder with SIMD-accelerated filters and a feature-rich renderer.
+This project aims to provide a PNG decoder with SIMD-accelerated filters and a GPU-based renderer.
 
-## Usage
+## Render 
 
 To render an image, simply run `cargo run <image_path>`. For example:
 
 ```bash
 cargo run ./potatoe.png
 ```
+
+Currently, the renderer supports image resizing. 
 
 ## Profile
 

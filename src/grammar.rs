@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, slice::ChunksExact};
+use std::{borrow::Cow, collections::BTreeMap, slice::ChunksExact};
 #[cfg(test)]
 use std::{
     fs::File,
@@ -117,12 +117,29 @@ impl Png {
     }
 
     /// The dimensions of the image (width, height).
-    pub const fn dimension(&self) -> (u32, u32) {
+    pub const fn dimensions(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
     pub const fn color_type(&self) -> ColorType {
         self.color_type
+    }
+
+    pub fn to_rgba8(&self) -> Cow<'_, [u8]> {
+        match self.color_type {
+            ColorType::RGBA => Cow::from(&self.pixel_buffer),
+            ColorType::RGB => {
+                let b = self
+                    .pixel_buffer
+                    .chunks_exact(3)
+                    .map(|b| [b[0], b[1], b[2], 0])
+                    .flatten()
+                    .collect::<Vec<_>>();
+
+                Cow::from(b)
+            }
+            _ => todo!(),
+        }
     }
 
     pub fn pixel_buffer(&self) -> Vec<u32> {
