@@ -17,4 +17,13 @@ crc32fast = "1.4.2"
 flate2 = "1.0.35"
 
 anyhow = "1.0.94"
+
+# renderer
+
+winit = { version = "0.29", features = ["rwh_05"] }
+env_logger = "0.10"
+log = "0.4"
+wgpu = "22.0"
+
+
 minifb = "0.27.0"
