@@ -36,11 +36,14 @@ impl<'a> Decoder<'a> {
         // the concatenation of the contents of all image data chunks.
         let mut compressed_stream = Vec::new();
 
-        // todo, how would you collect palettes if ColorType::Palette?
-        // todo, how do you collect ancillary chunks?
+        while let Some(chunk) = chunks.peek() {
+            // todo, how would you collect palettes if ColorType::Palette?
+            // todo, how do you collect ancillary chunks?
 
-        while let Some(&Chunk::ImageData(sub_data)) = chunks.peek() {
-            compressed_stream.extend_from_slice(sub_data);
+            if let &Chunk::ImageData(sub_data) = chunk {
+                compressed_stream.extend_from_slice(sub_data);
+            }
+
             chunks.next();
         }
 
@@ -192,14 +195,11 @@ impl<'a> Decoder<'a> {
     }
 
     fn validate_crc(&self, chunk_type: &'a [u8], chunk_data: &'a [u8], expected_crc: u32) -> bool {
-        let computed_crc = compute_crc(chunk_type, chunk_data);
-
-        computed_crc == expected_crc
+        expected_crc == compute_crc(chunk_type, chunk_data)
     }
 
     fn parse_chunks(&mut self) -> Result<Vec<Chunk>> {
         let mut chunks = Vec::new();
-
         let mut text_map = BTreeMap::new();
 
         loop {
