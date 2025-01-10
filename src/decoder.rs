@@ -366,13 +366,9 @@ impl<'a> Decoder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
-
-    use crate::test_file_parser::TestFileParser;
-
     use super::*;
-
-    const TEST_FILE_PARSER: TestFileParser = TestFileParser;
+    use crate::test_file_parser::parse_test_file;
+    use anyhow::anyhow;
 
     #[allow(dead_code)]
     fn generate_blob(path: &str) -> Result<()> {
@@ -388,12 +384,18 @@ mod tests {
         let expected_png = Png::read_from_binary_blob(&format!("./tests/{}", image_title))
             .map_err(|err| anyhow!("Try regenerating the blob: {:?}", err))?;
 
-        let content = std::fs::read(format!("./tests/{}.png", image_title))?;
+        let path = format!("./tests/{}.png", image_title);
+
+        let content = std::fs::read(&path)?;
         let generated_png = Decoder::new(&content).decode()?;
 
         if expected_png != generated_png {
-            let tf = TEST_FILE_PARSER.parse(format!("./tests/{}.png", image_title).into())?;
-            assert_eq!(expected_png, generated_png, "Failed test: {:?}", tf);
+            assert_eq!(
+                expected_png,
+                generated_png,
+                "Failed test: {:?}",
+                parse_test_file(&path.into())?
+            );
         }
 
         Ok(())
