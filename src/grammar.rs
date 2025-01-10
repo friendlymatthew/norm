@@ -31,7 +31,7 @@ pub struct ImageHeader {
 
 impl ImageHeader {
     // todo! when color_type is Grayscale and the bit_depth is 1, we get 0 num_bytes_per_pixel. This leads to a decoding error.
-    pub(crate) fn num_bytes_per_pixel(&self) -> usize {
+    pub(crate) const fn num_bytes_per_pixel(&self) -> usize {
         (self.color_type.num_channels() * self.bit_depth) as usize / 8
     }
 }
