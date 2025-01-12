@@ -381,7 +381,7 @@ mod tests {
     }
 
     fn compare_png(image_title: &str) -> Result<()> {
-        let expected_png = Png::read_from_binary_blob(&format!("./tests/{}", image_title))
+        let expected_png = Png::read_from_binary_blob(&format!("./tests/{}", image_title).into())
             .map_err(|err| anyhow!("Try regenerating the blob: {:?}", err))?;
 
         let path = format!("./tests/{}.png", image_title);

@@ -1,11 +1,10 @@
+use anyhow::{bail, Result};
 use std::{borrow::Cow, collections::BTreeMap, slice::ChunksExact};
 #[cfg(test)]
 use std::{
     fs::File,
     io::{Read, Write},
 };
-
-use anyhow::{bail, Result};
 
 #[derive(Debug)]
 pub enum Chunk<'a> {
@@ -194,7 +193,7 @@ impl Png {
     }
 
     #[cfg(test)]
-    pub(crate) fn read_from_binary_blob(path: &str) -> Result<Self> {
+    pub fn read_from_binary_blob(path: &PathBuf) -> Result<Self> {
         let mut file = File::open(path)?;
 
         let mut width = [0; 4];
