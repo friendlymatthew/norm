@@ -4,6 +4,7 @@ use std::{borrow::Cow, collections::BTreeMap, slice::ChunksExact};
 use std::{
     fs::File,
     io::{Read, Write},
+    path::PathBuf,
 };
 
 #[derive(Debug)]
@@ -31,7 +32,9 @@ pub struct ImageHeader {
 impl ImageHeader {
     // todo! when color_type is Grayscale and the bit_depth is 1, we get 0 num_bytes_per_pixel. This leads to a decoding error.
     pub(crate) const fn num_bytes_per_pixel(&self) -> usize {
-        (self.color_type.num_channels() * self.bit_depth) as usize / 8
+        let bits_per_pixel = self.color_type.num_channels() * self.bit_depth;
+
+        ((bits_per_pixel + 7) / 8) as usize
     }
 }
 
@@ -133,6 +136,24 @@ impl Png {
                     .pixel_buffer
                     .chunks_exact(3)
                     .flat_map(|b| [b[0], b[1], b[2], 0])
+                    .collect::<Vec<_>>();
+
+                Cow::from(b)
+            }
+            ColorType::Grayscale => {
+                let b = self
+                    .pixel_buffer
+                    .iter()
+                    .flat_map(|&y| [y, y, y, 0])
+                    .collect::<Vec<_>>();
+
+                Cow::from(b)
+            }
+            ColorType::GrayscaleAlpha => {
+                let b = self
+                    .pixel_buffer
+                    .chunks_exact(2)
+                    .flat_map(|b| [b[0], b[0], b[0], b[1]])
                     .collect::<Vec<_>>();
 
                 Cow::from(b)
