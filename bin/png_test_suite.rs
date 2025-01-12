@@ -1,6 +1,6 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use comfy_table::{Attribute, Cell, Color, Table};
-use png::test_file_parser::parse_test_file;
+use png::test_file_parser::{parse_test_file, PNGSuiteTestCase};
 use png::Decoder;
 use std::ffi::OsStr;
 use std::{fmt, fs, panic};
@@ -56,9 +56,13 @@ fn main() -> Result<()> {
             .map(|ext| ext.eq_ignore_ascii_case("png"))
         {
             let file_name = path.file_name().unwrap();
-            let description = parse_test_file(&path)?;
+            let PNGSuiteTestCase {
+                test_desc,
+                should_fail,
+            } = parse_test_file(&path)?;
 
             let content = fs::read(&path)?;
+
             let png_res = panic::catch_unwind(|| Decoder::new(&content).decode());
 
             let status = match png_res {
@@ -71,16 +75,26 @@ fn main() -> Result<()> {
                     TestStatus::Panic(msg)
                 }
                 Ok(Ok(_png)) => {
-                    // todo! compare pngs with the expected binary blob
-                    TestStatus::Passed
+                    if should_fail {
+                        TestStatus::Error(anyhow!("Failed to raise error for corrupt file"))
+                    } else {
+                        // todo! compare pngs with the expected binary blob
+                        TestStatus::Passed
+                    }
                 }
-                Ok(Err(msg)) => TestStatus::Error(msg),
+                Ok(Err(msg)) => {
+                    if should_fail {
+                        TestStatus::Passed
+                    } else {
+                        TestStatus::Error(msg)
+                    }
+                }
             };
 
             table.add_row(vec![
                 Cell::new(file_name.to_str().unwrap()),
-                Cell::new(&description),
-                Cell::new(&status.to_string()).fg(status.color()),
+                Cell::new(test_desc),
+                Cell::new(&status).fg(status.color()),
             ]);
         }
     }

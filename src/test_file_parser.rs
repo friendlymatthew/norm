@@ -5,11 +5,18 @@ use std::{os::unix::ffi::OsStrExt, path::PathBuf};
 
 use anyhow::{anyhow, bail, Result};
 
-pub fn parse_test_file(file_path: &PathBuf) -> Result<String> {
+pub struct PNGSuiteTestCase<'a> {
+    pub test_desc: &'a str,
+    pub should_fail: bool,
+}
+
+pub fn parse_test_file<'a>(file_path: &PathBuf) -> Result<PNGSuiteTestCase<'a>> {
     let test_file = file_path
         .file_stem()
         .ok_or_else(|| anyhow!("Failed to parse file stem from {:?}", file_path))?
         .as_bytes();
+
+    let should_fail = test_file[0] == b'z';
 
     let test_desc = match test_file {
         b"basn0g01" => "black & white",
@@ -190,7 +197,10 @@ pub fn parse_test_file(file_path: &PathBuf) -> Result<String> {
         _ => bail!("unknown test file: {:?}", file_path),
     };
 
-    Ok(test_desc.into())
+    Ok(PNGSuiteTestCase {
+        test_desc,
+        should_fail,
+    })
 }
 
 #[cfg(test)]
