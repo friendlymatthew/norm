@@ -8,27 +8,27 @@ use std::{fmt, fs, panic};
 #[derive(Debug)]
 enum TestStatus<'a> {
     Passed,
-    Incorrect,
+    _Incorrect,
     Panic(&'a str),
     Error(anyhow::Error),
 }
 
-impl<'a> TestStatus<'a> {
+impl TestStatus<'_> {
     fn color(&self) -> Color {
         match self {
             TestStatus::Passed => Color::Green,
-            TestStatus::Incorrect => Color::Red,
+            TestStatus::_Incorrect => Color::Red,
             TestStatus::Panic(_) => Color::Red,
             TestStatus::Error(_) => Color::DarkRed,
         }
     }
 }
 
-impl<'a> fmt::Display for TestStatus<'a> {
+impl fmt::Display for TestStatus<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TestStatus::Passed => write!(f, "Passed"),
-            TestStatus::Incorrect => write!(f, "Incorrect"),
+            TestStatus::_Incorrect => write!(f, "Incorrect"),
             TestStatus::Panic(msg) => write!(f, "Panic: {:?}", msg),
             TestStatus::Error(error) => write!(f, "Error: {:?}", error),
         }
