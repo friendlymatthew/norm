@@ -1,14 +1,15 @@
 use anyhow::{anyhow, Result};
 use comfy_table::{Attribute, Cell, Color, Table};
 use png::test_file_parser::{parse_test_file, PNGSuiteTestCase};
-use png::Decoder;
+use png::{Decoder, Png};
 use std::ffi::OsStr;
 use std::{fmt, fs, panic};
 
 #[derive(Debug)]
 enum TestStatus<'a> {
     Passed,
-    _Incorrect,
+    Incorrect,
+    Unsupported,
     Panic(&'a str),
     Error(anyhow::Error),
 }
@@ -17,7 +18,8 @@ impl TestStatus<'_> {
     fn color(&self) -> Color {
         match self {
             TestStatus::Passed => Color::Green,
-            TestStatus::_Incorrect => Color::Red,
+            TestStatus::Incorrect => Color::Red,
+            TestStatus::Unsupported => Color::Yellow,
             TestStatus::Panic(_) => Color::Red,
             TestStatus::Error(_) => Color::DarkRed,
         }
@@ -28,7 +30,8 @@ impl fmt::Display for TestStatus<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TestStatus::Passed => write!(f, "Passed"),
-            TestStatus::_Incorrect => write!(f, "Incorrect"),
+            TestStatus::Incorrect => write!(f, "Incorrect"),
+            TestStatus::Unsupported => write!(f, "Unsupported"),
             TestStatus::Panic(msg) => write!(f, "Panic: {:?}", msg),
             TestStatus::Error(error) => write!(f, "Error: {:?}", error),
         }
@@ -74,12 +77,24 @@ fn main() -> Result<()> {
                     };
                     TestStatus::Panic(msg)
                 }
-                Ok(Ok(_png)) => {
+                Ok(Ok(png)) => {
                     if should_fail {
                         TestStatus::Error(anyhow!("Failed to raise error for corrupt file"))
                     } else {
-                        // todo! compare pngs with the expected binary blob
-                        TestStatus::Passed
+                        let binary_blob_path = path.file_stem().unwrap();
+
+                        match Png::read_from_binary_blob(
+                            &format!("./tests/{}", binary_blob_path.to_string_lossy()).into(),
+                        ) {
+                            Err(_) => TestStatus::Unsupported,
+                            Ok(expected_png) => {
+                                if expected_png != png {
+                                    TestStatus::Incorrect
+                                } else {
+                                    TestStatus::Passed
+                                }
+                            }
+                        }
                     }
                 }
                 Ok(Err(msg)) => {

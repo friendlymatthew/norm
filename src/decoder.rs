@@ -401,10 +401,36 @@ mod tests {
         Ok(())
     }
 
+    // A note about the following test cases, these images were hand checked. This way, binary blobs can be generated with confidence (or hubris).
+
+    #[test]
+    fn test_basic_grayscale_8bit() -> Result<()> {
+        // generate_blob("./tests/basn0g08")?;
+        compare_png("basn0g08")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_basic_grayscale_alpha_8bit() -> Result<()> {
+        // generate_blob("./tests/basn4a08")?;
+        compare_png("basn4a08")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_basic_rgb_alpha_8bit() -> Result<()> {
+        // generate_blob("./tests/basn6a08")?;
+        compare_png("basn6a08")?;
+        Ok(())
+    }
+
     #[test]
     fn test_filter_0() -> Result<()> {
         // generate_blob("./tests/f00n2c08")?;
         compare_png("f00n2c08")?;
+
+        // generate_blob("./tests/f00n0g08")?;
+        compare_png("f00n0g08")?;
 
         Ok(())
     }
@@ -414,6 +440,8 @@ mod tests {
         // generate_blob("./tests/f01n2c08")?;
         compare_png("f01n2c08")?;
 
+        // generate_blob("./tests/f01n0g08")?;
+        compare_png("f01n0g08")?;
         Ok(())
     }
 
@@ -422,6 +450,8 @@ mod tests {
         // generate_blob("./tests/f02n2c08")?;
         compare_png("f02n2c08")?;
 
+        // generate_blob("./tests/f02n0g08")?;
+        compare_png("f02n0g08")?;
         Ok(())
     }
 
@@ -430,6 +460,8 @@ mod tests {
         // generate_blob("./tests/f03n2c08")?;
         compare_png("f03n2c08")?;
 
+        // generate_blob("./tests/f03n0g08")?;
+        compare_png("f03n0g08")?;
         Ok(())
     }
 
@@ -438,6 +470,8 @@ mod tests {
         // generate_blob("./tests/f04n2c08")?;
         compare_png("f04n2c08")?;
 
+        // generate_blob("./tests/f04n0g08")?;
+        compare_png("f04n0g08")?;
         Ok(())
     }
 }
