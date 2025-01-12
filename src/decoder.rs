@@ -19,7 +19,7 @@ impl<'a> Decoder<'a> {
     pub fn decode(&mut self) -> Result<Png> {
         ensure!(
             self.read_slice(8)? == b"\x89PNG\r\n\x1A\n",
-            "Expected signature.",
+            "Invalid PNG file: incorrect signature.",
         );
 
         let chunks = self.parse_chunks()?;
