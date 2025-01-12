@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, io::Read};
+use std::io::Read;
 
 use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
@@ -200,7 +200,6 @@ impl<'a> Decoder<'a> {
 
     fn parse_chunks(&mut self) -> Result<Vec<Chunk>> {
         let mut chunks = Vec::new();
-        let mut text_map = BTreeMap::new();
 
         loop {
             let length = self.read_u32()? as usize;
@@ -259,40 +258,6 @@ impl<'a> Decoder<'a> {
                 }
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),
                 b"IEND" => break,
-                b"tEXt" => {
-                    let mut split = self.read_slice(length)?.split(|x| *x == 0x00);
-
-                    if let (Some(keyword), Some(text_string)) = (split.next(), split.next()) {
-                        text_map
-                            .entry(keyword)
-                            .and_modify(|e| *e = text_string)
-                            .or_insert_with(|| text_string);
-                    } else {
-                        bail!("Invalid text chunk");
-                    };
-
-                    self.skip_crc()?;
-                    continue;
-                }
-                b"gAMA" => Chunk::Gamma(self.read_u32()?),
-                // b"zTXt" => {
-                //     let mut split = self.read_slice(length)?.split(|x| *x == 0x00);
-
-                //     if let (Some(keyword), Some(compressed_text)) = (split.next(), split.next()) {
-                //         let _compression_method = compressed_text[0];
-
-                //         let mut zlib_decoder = ZlibDecoder::new(&compressed_text[1..]);
-                //         let mut text_string = Vec::new();
-                //         zlib_decoder.read_to_end(&mut text_string)?;
-
-                //         text_map.entry(keyword).and_modify(|e| e.push(text_string));
-                //     } else {
-                //         bail!("Invalid text chunk");
-                //     };
-
-                //     let _crc = self.read_u32()?;
-                //     continue;
-                // }
                 _foreign => {
                     // todo! how would ancillary chunks be parsed?
                     self.cursor += length;
@@ -304,10 +269,6 @@ impl<'a> Decoder<'a> {
             self.skip_crc()?;
 
             chunks.push(chunk);
-        }
-
-        if !text_map.is_empty() {
-            chunks.push(Chunk::TextData(text_map));
         }
 
         Ok(chunks)
