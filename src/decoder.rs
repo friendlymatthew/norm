@@ -394,7 +394,7 @@ mod tests {
                 expected_png,
                 generated_png,
                 "Failed test: {:?}",
-                parse_test_file(&path.into())?
+                parse_test_file(&path.into())?.test_desc
             );
         }
 
