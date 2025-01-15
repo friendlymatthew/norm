@@ -1,6 +1,6 @@
 # png
 
-This project aims to provide a complete PNG decoder backed by a feature-rich GPU-based renderer.
+This project aims to provide a PNG decoder backed by a feature-rich GPU-based renderer.
 
 As a decoder, this project uses the [PNG test suite](http://www.schaik.com/pngsuite/) to validate its ability to handle
 various PNG features and edge cases. Currently, `png` can decode and render images with an 8-bit color depth.
