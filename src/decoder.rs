@@ -205,6 +205,11 @@ impl<'a> Decoder<'a> {
             let length = self.read_u32()? as usize;
 
             {
+                ensure!(
+                    self.cursor + 4 + length < self.data.len(),
+                    "EOF: Failed to read CRC value."
+                );
+
                 let expected_crc = u32::from_be_bytes(
                     self.data[self.cursor + 4 + length..self.cursor + 4 + length + 4].try_into()?,
                 );
