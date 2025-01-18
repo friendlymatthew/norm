@@ -61,6 +61,33 @@ impl<'a> Decoder<'a> {
 
         ensure!(!input_buffer.is_empty(), "Input buffer is empty.");
 
+        let pixel_buffer = if image_header._interlace_method {
+            self.adam7_deinterlace(&image_header, &input_buffer)?
+        } else {
+            self.non_interlaced(&image_header, &input_buffer)?
+        };
+
+        Ok(Png {
+            width: image_header.width,
+            height: image_header.height,
+            color_type: image_header.color_type,
+            pixel_buffer,
+        })
+    }
+
+    fn adam7_deinterlace(
+        &self,
+        _image_header: &ImageHeader,
+        _input_buffer: &'a [u8],
+    ) -> Result<Vec<u8>> {
+        todo!("What does deinterlacing look like?");
+    }
+
+    fn non_interlaced(
+        &self,
+        image_header: &ImageHeader,
+        input_buffer: &'a [u8],
+    ) -> Result<Vec<u8>> {
         let mut pixel_buffer = vec![0_u8; input_buffer.len() - image_header.height as usize];
 
         let num_channels = image_header.color_type.num_channels() as usize;
@@ -166,12 +193,7 @@ impl<'a> Decoder<'a> {
 
         ensure!(pixel_buffer.len() == input_buffer.len() - image_header.height as usize);
 
-        Ok(Png {
-            width: image_header.width,
-            height: image_header.height,
-            color_type: image_header.color_type,
-            pixel_buffer,
-        })
+        Ok(pixel_buffer)
     }
 
     const fn paeth(&self, left: u8, up: u8, up_left: u8) -> u8 {
