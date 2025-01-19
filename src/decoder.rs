@@ -89,7 +89,7 @@ impl<'a> Decoder<'a> {
         let pass_counts = compute_pass_counts(image_header.width, image_header.height);
         let mut cursor = 0;
 
-        for (_, pass) in pass_counts.into_iter().enumerate() {
+        for pass in pass_counts.into_iter() {
             let bytes_per_row = bytes_per_pixel * pass.width;
 
             for i in 0..pass.height {
@@ -100,7 +100,7 @@ impl<'a> Decoder<'a> {
                 let pixel_y = (pass.compute_y)(i);
                 let row = &input_buffer[row_start_idx..row_start_idx + bytes_per_row];
 
-                let pixel_row_start = i * bytes_per_row;
+                let _pixel_row_start = i * bytes_per_row;
 
                 match filter_type {
                     Filter::None => {

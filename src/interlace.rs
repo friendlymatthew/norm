@@ -25,20 +25,14 @@
 [7, 7, 7, 7, 7, 7, 7, 7],
 */
 
-pub(crate) struct Pass {
+pub struct Pass {
     pub(crate) width: usize,
     pub(crate) height: usize,
     pub(crate) compute_x: Box<dyn Fn(usize) -> usize>,
     pub(crate) compute_y: Box<dyn Fn(usize) -> usize>,
 }
 
-impl Pass {
-    pub(crate) fn area(&self) -> usize {
-        self.width * self.height
-    }
-}
-
-pub(crate) fn compute_pass_counts(width: u32, height: u32) -> [Pass; 7] {
+pub fn compute_pass_counts(width: u32, height: u32) -> [Pass; 7] {
     let width = width as usize;
     let height = height as usize;
 
@@ -97,7 +91,10 @@ mod tests {
         let pass_cts = compute_pass_counts(8, 8);
 
         assert_eq!(
-            pass_cts.into_iter().map(|p| p.area()).collect::<Vec<_>>(),
+            pass_cts
+                .into_iter()
+                .map(|p| p.width * p.height)
+                .collect::<Vec<_>>(),
             vec![1 << 0, 1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5,]
         )
     }
@@ -106,7 +103,10 @@ mod tests {
     fn pass_count_for_9x9() {
         let pass_cts = compute_pass_counts(9, 9);
         assert_eq!(
-            pass_cts.into_iter().map(|p| p.area()).collect::<Vec<_>>(),
+            pass_cts
+                .into_iter()
+                .map(|p| p.width * p.height)
+                .collect::<Vec<_>>(),
             vec![4, 2, 3, 6, 10, 20, 36]
         )
     }
@@ -115,7 +115,10 @@ mod tests {
     fn pass_count_for_9x10() {
         let pass_cts = compute_pass_counts(9, 10);
         assert_eq!(
-            pass_cts.into_iter().map(|p| p.area()).collect::<Vec<_>>(),
+            pass_cts
+                .into_iter()
+                .map(|p| p.width * p.height)
+                .collect::<Vec<_>>(),
             vec![4, 2, 3, 6, 10, 20, 45]
         )
     }
