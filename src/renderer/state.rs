@@ -56,6 +56,7 @@ struct State<'a> {
     window: &'a Window,
     grayscale: bool,
     sepia: bool,
+    invert_color: bool,
     color_tone_uniform: ColorToneUniform,
     color_tone_buffer: wgpu::Buffer,
     color_tone_bind_group: wgpu::BindGroup,
@@ -285,6 +286,7 @@ impl<'a> State<'a> {
             window,
             grayscale: false,
             sepia: false,
+            invert_color: false,
             color_tone_uniform,
             color_tone_buffer,
             color_tone_bind_group,
@@ -315,21 +317,29 @@ impl<'a> State<'a> {
                         ..
                     },
                 ..
-            } => match (keycode, state) {
-                (KeyCode::KeyG, ElementState::Pressed) => {
-                    self.grayscale = true;
+            } => match keycode {
+                KeyCode::KeyG => {
+                    match state {
+                        ElementState::Pressed => self.grayscale = true,
+                        ElementState::Released => self.grayscale = false,
+                    }
+
                     true
                 }
-                (KeyCode::KeyG, ElementState::Released) => {
-                    self.grayscale = false;
+                KeyCode::KeyS => {
+                    match state {
+                        ElementState::Pressed => self.sepia = true,
+                        ElementState::Released => self.sepia = false,
+                    }
+
                     true
                 }
-                (KeyCode::KeyS, ElementState::Pressed) => {
-                    self.sepia = true;
-                    true
-                }
-                (KeyCode::KeyS, ElementState::Released) => {
-                    self.sepia = false;
+                KeyCode::KeyI => {
+                    match state {
+                        ElementState::Pressed => self.invert_color = true,
+                        ElementState::Released => self.invert_color = false,
+                    }
+
                     true
                 }
                 _ => false,
@@ -339,7 +349,8 @@ impl<'a> State<'a> {
     }
 
     fn update(&mut self) {
-        self.color_tone_uniform.update(self.grayscale, self.sepia);
+        self.color_tone_uniform
+            .update(self.grayscale, self.sepia, self.invert_color);
         self.queue.write_buffer(
             &self.color_tone_buffer,
             0,
@@ -436,7 +447,7 @@ pub async fn run(png: Png) -> anyhow::Result<()> {
     }
 
     // State::new uses async code, so we're going to wait for it to finish
-    let mut state = crate::renderer::state::State::new(&window, &png).await?;
+    let mut state = State::new(&window, &png).await?;
     let mut surface_configured = false;
 
     event_loop.run(move |event, control_flow| {

@@ -1,7 +1,8 @@
 // Vertex shader
 struct ColorToneUniform {
     grayscale: u32,
-    sepia: u32
+    sepia: u32,
+    invert: u32,
 };
 
 @group(1) @binding(0)
@@ -36,14 +37,13 @@ var s_diffuse: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
     if color_tone_uniform.grayscale == 1u {
-        var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
         var y = (pixels.r * 0.29891 + pixels.g * 0.58661 + pixels.b * 0.11448);
         return vec4<f32>(y, y, y, 1.0);
     }
 
     if color_tone_uniform.sepia == 1u {
-        var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
         return vec4<f32>(
             0.393 * pixels.r + 0.769 * pixels.g + 0.189 * pixels.b,
             0.349 * pixels.r + 0.686 * pixels.g + 0.168 * pixels.b,
@@ -52,5 +52,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         );
     }
 
-    return textureSample(t_diffuse, s_diffuse, in.tex_coords);
+    if color_tone_uniform.invert == 1u {
+        return vec4<f32>(
+            1.0 - pixels.r,
+            1.0 - pixels.g,
+            1.0 - pixels.b,
+            pixels.a
+        );
+    }
+
+    return pixels;
 }
