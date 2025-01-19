@@ -167,7 +167,7 @@ impl<'a> State<'a> {
             label: Some("diffuse_bind_group"),
         });
 
-        let color_tone_uniform = ColorToneUniform::new();
+        let color_tone_uniform = ColorToneUniform::new(png.gamma);
 
         let color_tone_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Grayscale Buffer"),

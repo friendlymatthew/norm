@@ -3,6 +3,7 @@ struct ColorToneUniform {
     grayscale: u32,
     sepia: u32,
     invert: u32,
+    gamma: u32,
 };
 
 @group(1) @binding(0)
@@ -38,6 +39,12 @@ var s_diffuse: sampler;
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+
+    if color_tone_uniform.gamma == 1u {
+        // todo! modify the pixels to account for gamma
+        // see https://www.w3.org/TR/2003/REC-PNG-20031110/#13Decoder-gamma-handling
+    }
+
     if color_tone_uniform.grayscale == 1u {
         var y = (pixels.r * 0.29891 + pixels.g * 0.58661 + pixels.b * 0.11448);
         return vec4<f32>(y, y, y, 1.0);

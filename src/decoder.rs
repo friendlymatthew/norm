@@ -30,6 +30,11 @@ impl<'a> Decoder<'a> {
             bail!("Expected image header chunk.");
         };
 
+        ensure!(
+            image_header.compression_method == 0,
+            "Compression method should always be 0"
+        );
+
         let mut chunks = chunks.peekable();
 
         // There may be multiple image data chunks. If so, they shall appear
@@ -37,9 +42,14 @@ impl<'a> Decoder<'a> {
         // the concatenation of the contents of all image data chunks.
         let mut compressed_stream = Vec::new();
 
+        let mut gamma = 0;
+
         while let Some(chunk) = chunks.peek() {
             // todo, how would you collect palettes if ColorType::Palette?
             // todo, how do you collect ancillary chunks?
+            if let &Chunk::Gamma(g) = chunk {
+                gamma = g;
+            }
 
             if let &Chunk::ImageData(sub_data) = chunk {
                 compressed_stream.extend_from_slice(sub_data);
@@ -47,8 +57,6 @@ impl<'a> Decoder<'a> {
 
             chunks.next();
         }
-
-        // todo!, what if ancillary chunks appear after the image data chunks?
 
         let mut zlib_decoder = ZlibDecoder::new(&compressed_stream[..]);
         let mut input_buffer = Vec::new();
@@ -62,7 +70,7 @@ impl<'a> Decoder<'a> {
 
         ensure!(!input_buffer.is_empty(), "Input buffer is empty.");
 
-        let pixel_buffer = if image_header._interlace_method {
+        let pixel_buffer = if image_header.interlace_method {
             self.adam7_deinterlace(&image_header, &input_buffer)?
         } else {
             self.non_interlaced(&image_header, &input_buffer)?
@@ -71,6 +79,7 @@ impl<'a> Decoder<'a> {
         Ok(Png {
             width: image_header.width,
             height: image_header.height,
+            gamma,
             color_type: image_header.color_type,
             pixel_buffer,
         })
@@ -307,9 +316,9 @@ impl<'a> Decoder<'a> {
                         height: self.read_u32()?,
                         bit_depth: self.read_u8()?,
                         color_type: self.read_u8()?.try_into()?,
-                        _compression_method: self.read_u8()?,
+                        compression_method: self.read_u8()?,
                         filter_method: self.read_u8()?,
-                        _interlace_method: self.read_u8()? == 1,
+                        interlace_method: self.read_u8()? == 1,
                     })
                 }
                 b"PLTE" => {
@@ -340,6 +349,7 @@ impl<'a> Decoder<'a> {
                 }
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),
                 b"IEND" => break,
+                b"gAMA" => Chunk::Gamma(self.read_u32()?),
                 _foreign => {
                     // todo! how would ancillary chunks be parsed?
                     self.cursor += length;

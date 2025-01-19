@@ -21,13 +21,12 @@ pub struct ImageHeader {
     pub(crate) color_type: ColorType,
 
     // Compression method should always be 0.
-    pub(crate) _compression_method: u8,
+    pub(crate) compression_method: u8,
     pub(crate) filter_method: u8,
-    pub(crate) _interlace_method: bool,
+    pub(crate) interlace_method: bool,
 }
 
 impl ImageHeader {
-    // todo! when color_type is Grayscale and the bit_depth is 1, we get 0 num_bytes_per_pixel. This leads to a decoding error.
     pub(crate) const fn num_bytes_per_pixel(&self) -> usize {
         let bits_per_pixel = self.color_type.num_channels() * self.bit_depth;
 
@@ -103,6 +102,8 @@ impl TryFrom<u8> for Filter {
 pub struct Png {
     pub(crate) width: u32,
     pub(crate) height: u32,
+    // represents gamma * 100,000
+    pub(crate) gamma: u32,
     pub(crate) color_type: ColorType,
     pub(crate) pixel_buffer: Vec<u8>,
 }
@@ -204,6 +205,7 @@ impl Png {
 
         file.write_all(&self.width.to_be_bytes())?;
         file.write_all(&self.height.to_be_bytes())?;
+        file.write(&self.gamma.to_be_bytes())?;
         file.write_all(&[self.color_type as u8])?;
         file.write_all(&self.pixel_buffer)?;
 
@@ -219,6 +221,9 @@ impl Png {
         let mut height = [0; 4];
         file.read_exact(&mut height)?;
 
+        let mut gamma = [0; 4];
+        file.read_exact(&mut gamma)?;
+
         let mut color_type = [0];
         file.read_exact(&mut color_type)?;
 
@@ -228,6 +233,7 @@ impl Png {
         Ok(Self {
             width: u32::from_be_bytes(width),
             height: u32::from_be_bytes(height),
+            gamma: u32::from_be_bytes(gamma),
             color_type: color_type[0].try_into()?,
             pixel_buffer,
         })

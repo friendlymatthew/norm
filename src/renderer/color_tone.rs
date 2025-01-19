@@ -4,11 +4,17 @@ pub struct ColorToneUniform {
     grayscale: u32,
     sepia: u32,
     invert: u32,
+    gamma: u32,
 }
 
 impl ColorToneUniform {
-    pub(crate) fn new() -> Self {
-        Self::default()
+    pub(crate) const fn new(gamma: u32) -> Self {
+        Self {
+            grayscale: 0,
+            sepia: 0,
+            invert: 0,
+            gamma,
+        }
     }
 
     pub(crate) fn update(
