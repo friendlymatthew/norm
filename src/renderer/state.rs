@@ -10,7 +10,7 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use crate::renderer::grayscale::GrayscaleUniform;
+use crate::renderer::color_tone::ColorToneUniform;
 use crate::{
     renderer::{Texture, Vertex},
     Png,
@@ -55,9 +55,10 @@ struct State<'a> {
     diffuse_bind_group: wgpu::BindGroup,
     window: &'a Window,
     grayscale: bool,
-    grayscale_uniform: GrayscaleUniform,
-    grayscale_buffer: wgpu::Buffer,
-    grayscale_bind_group: wgpu::BindGroup,
+    sepia: bool,
+    color_tone_uniform: ColorToneUniform,
+    color_tone_buffer: wgpu::Buffer,
+    color_tone_bind_group: wgpu::BindGroup,
 }
 
 impl<'a> State<'a> {
@@ -165,15 +166,15 @@ impl<'a> State<'a> {
             label: Some("diffuse_bind_group"),
         });
 
-        let grayscale_uniform = GrayscaleUniform::new();
+        let color_tone_uniform = ColorToneUniform::new();
 
-        let grayscale_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let color_tone_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Grayscale Buffer"),
-            contents: bytemuck::cast_slice(&[grayscale_uniform]),
+            contents: bytemuck::cast_slice(&[color_tone_uniform]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let grayscale_bind_group_layout =
+        let color_tone_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -185,16 +186,16 @@ impl<'a> State<'a> {
                     },
                     count: None,
                 }],
-                label: Some("grayscale_bind_group_layout"),
+                label: Some("color_tone_bind_group_layout"),
             });
 
-        let grayscale_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &grayscale_bind_group_layout,
+        let color_tone_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &color_tone_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: grayscale_buffer.as_entire_binding(),
+                resource: color_tone_buffer.as_entire_binding(),
             }],
-            label: Some("grayscale_bind_group"),
+            label: Some("color_tone_bind_group"),
         });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -205,7 +206,7 @@ impl<'a> State<'a> {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &grayscale_bind_group_layout],
+                bind_group_layouts: &[&texture_bind_group_layout, &color_tone_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -283,9 +284,10 @@ impl<'a> State<'a> {
             diffuse_bind_group,
             window,
             grayscale: false,
-            grayscale_uniform,
-            grayscale_buffer,
-            grayscale_bind_group,
+            sepia: false,
+            color_tone_uniform,
+            color_tone_buffer,
+            color_tone_bind_group,
         })
     }
 
@@ -322,6 +324,14 @@ impl<'a> State<'a> {
                     self.grayscale = false;
                     true
                 }
+                (KeyCode::KeyS, ElementState::Pressed) => {
+                    self.sepia = true;
+                    true
+                }
+                (KeyCode::KeyS, ElementState::Released) => {
+                    self.sepia = false;
+                    true
+                }
                 _ => false,
             },
             _ => false,
@@ -329,11 +339,11 @@ impl<'a> State<'a> {
     }
 
     fn update(&mut self) {
-        self.grayscale_uniform.toggle_grayscale(self.grayscale);
+        self.color_tone_uniform.update(self.grayscale, self.sepia);
         self.queue.write_buffer(
-            &self.grayscale_buffer,
+            &self.color_tone_buffer,
             0,
-            bytemuck::cast_slice(&[self.grayscale_uniform]),
+            bytemuck::cast_slice(&[self.color_tone_uniform]),
         )
     }
 
@@ -372,7 +382,7 @@ impl<'a> State<'a> {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.grayscale_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.color_tone_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
