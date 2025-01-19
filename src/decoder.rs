@@ -145,8 +145,8 @@ impl<'a> Decoder<'a> {
     ) -> Result<Vec<u8>> {
         let mut pixel_buffer = vec![0_u8; input_buffer.len() - image_header.height as usize];
 
-        let num_channels = image_header.color_type.num_channels() as usize;
-        let bytes_per_row = image_header.num_bytes_per_pixel() * image_header.width as usize;
+        let bytes_per_pixel = image_header.num_bytes_per_pixel();
+        let bytes_per_row = bytes_per_pixel * image_header.width as usize;
 
         for i in 0..image_header.height as usize {
             let mut row_start_idx = i * (1 + bytes_per_row);
@@ -163,12 +163,12 @@ impl<'a> Decoder<'a> {
                         .copy_from_slice(row);
                 }
                 Filter::Sub => {
-                    pixel_buffer[pixel_row_start..pixel_row_start + num_channels]
-                        .copy_from_slice(&row[0..num_channels]);
+                    pixel_buffer[pixel_row_start..pixel_row_start + bytes_per_pixel]
+                        .copy_from_slice(&row[0..bytes_per_pixel]);
 
-                    for j in num_channels..bytes_per_row {
-                        let filtered =
-                            row[j].wrapping_add(pixel_buffer[pixel_row_start + j - num_channels]);
+                    for j in bytes_per_pixel..bytes_per_row {
+                        let filtered = row[j]
+                            .wrapping_add(pixel_buffer[pixel_row_start + j - bytes_per_pixel]);
 
                         pixel_buffer[pixel_row_start + j] = filtered;
                     }
@@ -192,19 +192,19 @@ impl<'a> Decoder<'a> {
                     let has_prev_row = pixel_row_start >= bytes_per_row;
 
                     if has_prev_row {
-                        for j in 0..num_channels {
+                        for j in 0..bytes_per_pixel {
                             pixel_buffer[pixel_row_start + j] = row[j].wrapping_add(
                                 (pixel_buffer[pixel_row_start - bytes_per_row + j] as u16 / 2)
                                     as u8,
                             )
                         }
                     } else {
-                        pixel_buffer[pixel_row_start..pixel_row_start + num_channels]
-                            .copy_from_slice(&row[0..num_channels]);
+                        pixel_buffer[pixel_row_start..pixel_row_start + bytes_per_pixel]
+                            .copy_from_slice(&row[0..bytes_per_pixel]);
                     }
 
-                    for j in num_channels..bytes_per_row {
-                        let mut a = pixel_buffer[pixel_row_start + j - num_channels] as u16;
+                    for j in bytes_per_pixel..bytes_per_row {
+                        let mut a = pixel_buffer[pixel_row_start + j - bytes_per_pixel] as u16;
 
                         if has_prev_row {
                             a += pixel_buffer[pixel_row_start - bytes_per_row + j] as u16;
@@ -218,16 +218,16 @@ impl<'a> Decoder<'a> {
                 }
                 Filter::Paeth => {
                     for j in 0..row.len() {
-                        let left = if j < num_channels {
+                        let left = if j < bytes_per_pixel {
                             0
                         } else {
-                            pixel_buffer[pixel_row_start + j - num_channels]
+                            pixel_buffer[pixel_row_start + j - bytes_per_pixel]
                         };
 
-                        let up_left = if j < num_channels || pixel_row_start < bytes_per_row {
+                        let up_left = if j < bytes_per_pixel || pixel_row_start < bytes_per_row {
                             0
                         } else {
-                            pixel_buffer[pixel_row_start - bytes_per_row + j - num_channels]
+                            pixel_buffer[pixel_row_start - bytes_per_row + j - bytes_per_pixel]
                         };
 
                         let filtered = row[j].wrapping_add(self.paeth(
