@@ -10,36 +10,10 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use crate::{texture, Png};
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
-}
-
-impl Vertex {
-    const fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-            ],
-        }
-    }
-}
+use crate::{
+    renderer::{Texture, Vertex},
+    Png,
+};
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -64,18 +38,19 @@ const INDICES: &[u16] = &[
     0, 1, 2, // first triangle
     2, 1, 3, // second triangle
 ];
+
 struct State<'a> {
     surface: wgpu::Surface<'a>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
+    size: PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     #[allow(dead_code)]
-    diffuse_texture: texture::Texture,
+    diffuse_texture: Texture,
     diffuse_bind_group: wgpu::BindGroup,
     window: &'a Window,
 }
@@ -145,7 +120,7 @@ impl<'a> State<'a> {
             desired_maximum_frame_latency: 2,
         };
 
-        let diffuse_texture = texture::Texture::from_bytes(&device, &queue, png)?;
+        let diffuse_texture = Texture::from_bytes(&device, &queue, png)?;
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -238,7 +213,7 @@ impl<'a> State<'a> {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            // If the pipeline will be used with a multiview render pass, this
+            // If the pipeline will be used with a multiview renderer pass, this
             // indicates how many array layers the attachments will have.
             multiview: None,
             // Useful for optimizing shader compilation on Android
@@ -277,7 +252,7 @@ impl<'a> State<'a> {
         self.window
     }
 
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = new_size.width;
@@ -342,7 +317,7 @@ impl<'a> State<'a> {
 
 #[allow(clippy::future_not_send)]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub async fn run(png: Png) -> Result<()> {
+pub async fn run(png: Png) -> anyhow::Result<()> {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -381,7 +356,7 @@ pub async fn run(png: Png) -> Result<()> {
     }
 
     // State::new uses async code, so we're going to wait for it to finish
-    let mut state = State::new(&window, &png).await?;
+    let mut state = crate::renderer::state::State::new(&window, &png).await?;
     let mut surface_configured = false;
 
     event_loop.run(move |event, control_flow| {

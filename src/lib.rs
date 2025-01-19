@@ -8,9 +8,7 @@ pub use grammar::*;
 pub mod renderer;
 pub mod test_file_parser;
 
+mod crc32;
 mod decoder;
 mod grammar;
-mod texture;
-
-mod crc32;
 mod interlace;

@@ -1,4 +1,4 @@
-use crate::Png;
+use crate::grammar::Png;
 use anyhow::*;
 
 pub struct Texture {
