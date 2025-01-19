@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use std::iter;
 
 use wgpu::util::DeviceExt;
@@ -80,7 +81,7 @@ struct State<'a> {
 }
 
 impl<'a> State<'a> {
-    async fn new(window: &'a Window, png: &'a Png) -> State<'a> {
+    async fn new(window: &'a Window, png: &'a Png) -> Result<State<'a>> {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -93,7 +94,7 @@ impl<'a> State<'a> {
             ..Default::default()
         });
 
-        let surface = instance.create_surface(window).unwrap();
+        let surface = instance.create_surface(window)?;
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -102,7 +103,8 @@ impl<'a> State<'a> {
                 force_fallback_adapter: false,
             })
             .await
-            .unwrap();
+            .ok_or_else(|| anyhow!("Failed to get adapter"))?;
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -119,12 +121,11 @@ impl<'a> State<'a> {
                 },
                 None, // Trace path
             )
-            .await
-            .unwrap();
+            .await?;
 
         let surface_caps = surface.get_capabilities(&adapter);
         // Shader code in this tutorial assumes an Srgb surface texture. Using a different
-        // one will result all the colors comming out darker. If you want to support non
+        // one will result all the colors coming out darker. If you want to support non
         // Srgb surfaces, you'll need to account for that when drawing to the frame.
         let surface_format = surface_caps
             .formats
@@ -132,6 +133,7 @@ impl<'a> State<'a> {
             .copied()
             .find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
+
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
@@ -143,7 +145,7 @@ impl<'a> State<'a> {
             desired_maximum_frame_latency: 2,
         };
 
-        let diffuse_texture = texture::Texture::from_bytes(&device, &queue, png).unwrap();
+        let diffuse_texture = texture::Texture::from_bytes(&device, &queue, png)?;
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -255,7 +257,7 @@ impl<'a> State<'a> {
         });
         let num_indices = INDICES.len() as u32;
 
-        Self {
+        Ok(Self {
             surface,
             device,
             queue,
@@ -268,7 +270,7 @@ impl<'a> State<'a> {
             diffuse_texture,
             diffuse_bind_group,
             window,
-        }
+        })
     }
 
     pub const fn window(&self) -> &Window {
@@ -340,24 +342,24 @@ impl<'a> State<'a> {
 
 #[allow(clippy::future_not_send)]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub async fn run(png: Png) {
+pub async fn run(png: Png) -> Result<()> {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-            console_log::init_with_level(log::Level::Warn).expect("Could't initialize logger");
+            console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
         } else {
             env_logger::init();
         }
     }
 
-    let event_loop = EventLoop::new().unwrap();
+    let event_loop = EventLoop::new()?;
 
     let (width, height) = png.dimensions();
 
     let window = WindowBuilder::new()
         .with_inner_size(PhysicalSize::new(width, height))
-        .build(&event_loop)
-        .unwrap();
+        .with_title("friendlymatthew/png")
+        .build(&event_loop)?;
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -379,65 +381,65 @@ pub async fn run(png: Png) {
     }
 
     // State::new uses async code, so we're going to wait for it to finish
-    let mut state = State::new(&window, &png).await;
+    let mut state = State::new(&window, &png).await?;
     let mut surface_configured = false;
 
-    event_loop
-        .run(move |event, control_flow| {
-            match event {
-                Event::WindowEvent {
-                    ref event,
-                    window_id,
-                } if window_id == state.window().id() => {
-                    if !state.input(event) {
-                        match event {
-                            WindowEvent::CloseRequested
-                            | WindowEvent::KeyboardInput {
-                                event:
-                                    KeyEvent {
-                                        state: ElementState::Pressed,
-                                        physical_key: PhysicalKey::Code(KeyCode::Escape),
-                                        ..
-                                    },
-                                ..
-                            } => control_flow.exit(),
-                            WindowEvent::Resized(physical_size) => {
-                                surface_configured = true;
-                                state.resize(*physical_size);
-                            }
-                            WindowEvent::RedrawRequested => {
-                                // This tells winit that we want another frame after this one
-                                state.window().request_redraw();
-
-                                if !surface_configured {
-                                    return;
-                                }
-
-                                state.update();
-                                match state.render() {
-                                    Ok(_) => {}
-                                    // Reconfigure the surface if it's lost or outdated
-                                    Err(
-                                        wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated,
-                                    ) => state.resize(state.size),
-                                    // The system is out of memory, we should probably quit
-                                    Err(wgpu::SurfaceError::OutOfMemory) => {
-                                        log::error!("OutOfMemory");
-                                        control_flow.exit();
-                                    }
-
-                                    // This happens when the a frame takes too long to present
-                                    Err(wgpu::SurfaceError::Timeout) => {
-                                        log::warn!("Surface timeout")
-                                    }
-                                }
-                            }
-                            _ => {}
+    event_loop.run(move |event, control_flow| {
+        match event {
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } if window_id == state.window().id() => {
+                if !state.input(event) {
+                    match event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::KeyboardInput {
+                            event:
+                                KeyEvent {
+                                    state: ElementState::Pressed,
+                                    physical_key: PhysicalKey::Code(KeyCode::Escape),
+                                    ..
+                                },
+                            ..
+                        } => control_flow.exit(),
+                        WindowEvent::Resized(physical_size) => {
+                            surface_configured = true;
+                            state.resize(*physical_size);
                         }
+                        WindowEvent::RedrawRequested => {
+                            // This tells winit that we want another frame after this one
+                            state.window().request_redraw();
+
+                            if !surface_configured {
+                                return;
+                            }
+
+                            state.update();
+                            match state.render() {
+                                Ok(_) => {}
+                                // Reconfigure the surface if it's lost or outdated
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                    state.resize(state.size)
+                                }
+                                // The system is out of memory, we should probably quit
+                                Err(wgpu::SurfaceError::OutOfMemory) => {
+                                    log::error!("OutOfMemory");
+                                    control_flow.exit();
+                                }
+
+                                // This happens when a frame takes too long to present
+                                Err(wgpu::SurfaceError::Timeout) => {
+                                    log::warn!("Surface timeout")
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 }
-                _ => {}
             }
-        })
-        .unwrap();
+            _ => {}
+        }
+    })?;
+
+    Ok(())
 }

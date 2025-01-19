@@ -29,5 +29,6 @@ cargo r --bin png-test-suite
 http://www.libpng.org/pub/png/pngintro.html<br>
 https://www.w3.org/TR/2003/REC-PNG-20031110/<br>
 http://www.libpng.org/pub/png/pngpic2.html<br>
+https://www.w3.org/Graphics/PNG/platform.html<br>
 
 https://sotrh.github.io/learn-wgpu/<br>

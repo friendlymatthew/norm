@@ -12,7 +12,7 @@ fn main() -> Result<()> {
     let mut decoder = Decoder::new(&content);
     let png = decoder.decode()?;
 
-    block_on(renderer::run(png));
+    let _ = block_on(renderer::run(png));
 
     Ok(())
 }
