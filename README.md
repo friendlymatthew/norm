@@ -5,23 +5,28 @@ This project aims to provide a PNG decoder backed by a feature-rich GPU-based re
 As a decoder, this project uses the [PNG test suite](http://www.schaik.com/pngsuite/) to validate its ability to handle
 various PNG features and edge cases. Currently, `png` can decode and render images with an 8-bit color depth.
 
+The renderer can resize images and trigger grayscaling when pressing <kbd>G</kbd>.
+
 ## Usage
 
-To render an image, run `cargo run <image_path>`. For example:
+To render an image, run `cargo run --release <image_path>`. For example:
 
 ```bash
 # cd png
-cargo run ./obama.png
+cargo run --release ./obama.png
 ```
 
 ### Additional Scripts
 
 ```bash
+# Run the PNG test suite
+cargo r --bin png-test-suite
+
 # Profile the decoder
 ./profile.sh ./reagan.png
 
-# Run the PNG test suite
-cargo r --bin png-test-suite
+# Fuzz the decoder
+./fuzz.sh
 ```
 
 ## Reading

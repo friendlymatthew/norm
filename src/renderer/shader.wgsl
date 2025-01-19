@@ -1,4 +1,10 @@
 // Vertex shader
+struct GrayscaleUniform {
+    grayscale: u32,
+};
+
+@group(1) @binding(0)
+var<uniform> grayscale_uniform: GrayscaleUniform;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -29,5 +35,11 @@ var s_diffuse: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    if grayscale_uniform.grayscale == 1u {
+        var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+        var y = (pixels.r * 0.29891 + pixels.g * 0.58661 + pixels.b * 0.11448);
+        return vec4<f32>(y, y, y, 1.0);
+    }
+
     return textureSample(t_diffuse, s_diffuse, in.tex_coords);
 }
