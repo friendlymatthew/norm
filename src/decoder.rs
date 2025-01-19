@@ -422,6 +422,7 @@ mod tests {
     use super::*;
     use crate::test_file_parser::parse_test_file;
     use anyhow::anyhow;
+    use pretty_assertions::assert_eq;
 
     #[allow(dead_code)]
     fn generate_blob(path: &str) -> Result<()> {
