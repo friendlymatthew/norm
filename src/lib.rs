@@ -13,3 +13,4 @@ mod grammar;
 mod texture;
 
 mod crc32;
+mod interlace;

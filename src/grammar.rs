@@ -155,7 +155,7 @@ impl Png {
 
                 Cow::from(b)
             }
-            _ => todo!(),
+            foreign => unimplemented!("{:?}", foreign),
         }
     }
 

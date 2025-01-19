@@ -3,6 +3,7 @@ use std::io::Read;
 use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
 
+use crate::interlace::compute_pass_counts;
 use crate::{crc32::compute_crc, Chunk, ColorType, Filter, ImageHeader, Png};
 
 #[derive(Debug)]
@@ -77,10 +78,64 @@ impl<'a> Decoder<'a> {
 
     fn adam7_deinterlace(
         &self,
-        _image_header: &ImageHeader,
-        _input_buffer: &'a [u8],
+        image_header: &ImageHeader,
+        input_buffer: &'a [u8],
     ) -> Result<Vec<u8>> {
-        todo!("What does deinterlacing look like?");
+        let bytes_per_pixel = image_header.num_bytes_per_pixel();
+
+        let mut pixel_buffer =
+            vec![0u8; bytes_per_pixel * (image_header.height * image_header.width) as usize];
+
+        let pass_counts = compute_pass_counts(image_header.width, image_header.height);
+        let mut cursor = 0;
+
+        for (_, pass) in pass_counts.into_iter().enumerate() {
+            let bytes_per_row = bytes_per_pixel * pass.width;
+
+            for i in 0..pass.height {
+                let mut row_start_idx = cursor + i * (1 + bytes_per_row);
+                let filter_type = Filter::try_from(input_buffer[row_start_idx])?;
+                row_start_idx += 1;
+
+                let pixel_y = (pass.compute_y)(i);
+                let row = &input_buffer[row_start_idx..row_start_idx + bytes_per_row];
+
+                let pixel_row_start = i * bytes_per_row;
+
+                match filter_type {
+                    Filter::None => {
+                        for (j, pixel) in row.chunks_exact(bytes_per_pixel).enumerate() {
+                            let pixel_x = (pass.compute_x)(j);
+
+                            let index = (pixel_y * image_header.width as usize) + pixel_x;
+                            pixel_buffer[index..index + bytes_per_pixel].copy_from_slice(pixel);
+                        }
+                    }
+                    Filter::Sub => {
+                        let mut new_row = row.to_vec();
+
+                        for i in bytes_per_pixel..bytes_per_row {
+                            let filtered = new_row[i].wrapping_add(new_row[i - bytes_per_pixel]);
+                            new_row[i] = filtered;
+                        }
+
+                        for (j, pixel) in new_row.chunks_exact(bytes_per_pixel).enumerate() {
+                            let pixel_x = (pass.compute_x)(j);
+
+                            let index = (pixel_y * image_header.width as usize) + pixel_x;
+                            pixel_buffer[index..index + bytes_per_pixel].copy_from_slice(pixel);
+                        }
+                    }
+                    _ => todo!("What do other filters look like?"),
+                }
+
+                dbg!(filter_type);
+            }
+
+            cursor += (1 + bytes_per_row) * pass.height;
+        }
+
+        Ok(pixel_buffer)
     }
 
     fn non_interlaced(
