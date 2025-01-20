@@ -10,6 +10,7 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+use crate::renderer::blur::BlurUniform;
 use crate::renderer::color_tone::ColorToneUniform;
 use crate::{
     renderer::{Texture, Vertex},
@@ -60,6 +61,11 @@ struct State<'a> {
     color_tone_uniform: ColorToneUniform,
     color_tone_buffer: wgpu::Buffer,
     color_tone_bind_group: wgpu::BindGroup,
+    blur: bool,
+    blur_radius: u32,
+    blur_uniform: BlurUniform,
+    blur_buffer: wgpu::Buffer,
+    blur_bind_group: wgpu::BindGroup,
 }
 
 impl<'a> State<'a> {
@@ -167,10 +173,42 @@ impl<'a> State<'a> {
             label: Some("diffuse_bind_group"),
         });
 
+        let blur_uniform = BlurUniform::new();
+
+        let blur_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Blur Buffer"),
+            contents: bytemuck::cast_slice(&[blur_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let blur_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("blur_bind_group_layout"),
+            });
+
+        let blur_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &blur_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: blur_buffer.as_entire_binding(),
+            }],
+            label: Some("blur_bind_group"),
+        });
+
         let color_tone_uniform = ColorToneUniform::new(png.gamma);
 
         let color_tone_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Grayscale Buffer"),
+            label: Some("Color Tone Buffer"),
             contents: bytemuck::cast_slice(&[color_tone_uniform]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
@@ -207,7 +245,11 @@ impl<'a> State<'a> {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &color_tone_bind_group_layout],
+                bind_group_layouts: &[
+                    &texture_bind_group_layout,
+                    &color_tone_bind_group_layout,
+                    &blur_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
@@ -290,6 +332,11 @@ impl<'a> State<'a> {
             color_tone_uniform,
             color_tone_buffer,
             color_tone_bind_group,
+            blur: false,
+            blur_radius: blur_uniform.radius,
+            blur_uniform,
+            blur_buffer,
+            blur_bind_group,
         })
     }
 
@@ -318,6 +365,28 @@ impl<'a> State<'a> {
                     },
                 ..
             } => match keycode {
+                KeyCode::KeyB => {
+                    match state {
+                        ElementState::Pressed => self.blur = true,
+                        ElementState::Released => self.blur = false,
+                    }
+
+                    true
+                }
+                KeyCode::ArrowUp => {
+                    if state == &ElementState::Pressed && self.blur {
+                        self.blur_radius = (self.blur_radius + 1).min(8);
+                    }
+
+                    true
+                }
+                KeyCode::ArrowDown => {
+                    if state == &ElementState::Pressed && self.blur {
+                        self.blur_radius = (self.blur_radius - 1).max(3);
+                    }
+
+                    true
+                }
                 KeyCode::KeyG => {
                     match state {
                         ElementState::Pressed => self.grayscale = true,
@@ -355,7 +424,14 @@ impl<'a> State<'a> {
             &self.color_tone_buffer,
             0,
             bytemuck::cast_slice(&[self.color_tone_uniform]),
-        )
+        );
+
+        self.blur_uniform.update(self.blur, self.blur_radius);
+        self.queue.write_buffer(
+            &self.blur_buffer,
+            0,
+            bytemuck::cast_slice(&[self.blur_uniform]),
+        );
     }
 
     fn render(&self) -> Result<(), wgpu::SurfaceError> {
@@ -394,6 +470,7 @@ impl<'a> State<'a> {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.color_tone_bind_group, &[]);
+            render_pass.set_bind_group(2, &self.blur_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);

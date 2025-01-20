@@ -102,7 +102,7 @@ impl TryFrom<u8> for Filter {
 pub struct Png {
     pub(crate) width: u32,
     pub(crate) height: u32,
-    // represents gamma * 100,000
+    /// represents gamma * 100,000. `gamma` == 0 is SPECIAL.
     pub(crate) gamma: u32,
     pub(crate) color_type: ColorType,
     pub(crate) pixel_buffer: Vec<u8>,

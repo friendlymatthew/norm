@@ -6,8 +6,16 @@ struct ColorToneUniform {
     gamma: u32,
 };
 
+struct BlurUniform {
+    blur: u32,
+    radius: u32,
+}
+
 @group(1) @binding(0)
 var<uniform> color_tone_uniform: ColorToneUniform;
+
+@group(2) @binding(0)
+var<uniform> blur_uniform: BlurUniform;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -36,11 +44,55 @@ var t_diffuse: texture_2d<f32>;
 @group(0) @binding(1)
 var s_diffuse: sampler;
 
+const PI: f32 = 22.0 / 7.0;
+const GAUSSIAN_SIGMA: f32 = f32(7) * 0.25;
+
+fn gaussian(offset: vec2<f32>) -> f32 {
+    return 1.0 / (2.0 * PI * GAUSSIAN_SIGMA * GAUSSIAN_SIGMA) * exp(-((offset.x * offset.x + offset.y * offset.y) / (2.0 * GAUSSIAN_SIGMA * GAUSSIAN_SIGMA)));
+}
+
+fn gaussian_blur(tex_coords: vec2<f32>, radius: f32) -> vec4<f32> {
+    var acc = 0.0;
+    var color = vec4<f32>();
+    var weight = 0.0;
+
+    for (var x = -1.0 * radius / 2.0; x < radius / 2.0; x = x + 1) {
+        for (var y = -1.0 * radius / 2.0; y < radius / 2.0; y = y + 1) {
+            var offset = vec2(x, y);
+            weight = gaussian(offset);
+            color = color + (textureSample(t_diffuse, s_diffuse, tex_coords + vec2(0.0025, 0.0025) * offset) * weight);
+            acc = acc + weight;
+        }
+    }
+
+    return color / acc;
+}
+
+fn box_blur(tex_coords: vec2<f32>) -> vec4<f32> {
+    var acc_color = vec4<f32>(0.0);
+    var weight = 0.0025;
+
+    var ct = 0.0;
+
+    for (var dx = -1.0; dx <= 1.0; dx = dx + 1.0) {
+        for (var dy = -1.0; dy <= 1.0; dy = dy + 1.0) {
+            acc_color += textureSample(t_diffuse, s_diffuse, tex_coords + vec2<f32>(dx * weight, dy * weight));
+            ct = ct + 1.0;
+        }
+    }
+
+    return acc_color / ct;
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    if blur_uniform.blur == 1u {
+        return gaussian_blur(in.tex_coords, f32(blur_uniform.radius));
+    }
+
     var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
 
-    if color_tone_uniform.gamma == 1u {
+    if color_tone_uniform.gamma != 0u {
         // todo! modify the pixels to account for gamma
         // see https://www.w3.org/TR/2003/REC-PNG-20031110/#13Decoder-gamma-handling
     }
