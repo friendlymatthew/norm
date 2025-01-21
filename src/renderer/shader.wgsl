@@ -47,9 +47,9 @@ var t_diffuse: texture_2d<f32>;
 var s_diffuse: sampler;
 
 const PI: f32 = 22.0 / 7.0;
-const GAUSSIAN_SIGMA: f32 = f32(7) * 0.25;
 
 fn gaussian(offset: vec2<f32>) -> f32 {
+    var GAUSSIAN_SIGMA: f32 = f32(blur_uniform.radius) * 0.25;
     return 1.0 / (2.0 * PI * GAUSSIAN_SIGMA * GAUSSIAN_SIGMA) * exp(-((offset.x * offset.x + offset.y * offset.y) / (2.0 * GAUSSIAN_SIGMA * GAUSSIAN_SIGMA)));
 }
 
@@ -70,15 +70,14 @@ fn gaussian_blur(tex_coords: vec2<f32>, radius: f32, viewport_resolution: vec2<f
     return color / acc;
 }
 
-fn box_blur(tex_coords: vec2<f32>) -> vec4<f32> {
+fn box_blur(tex_coords: vec2<f32>, viewport_resolution: vec2<f32>) -> vec4<f32> {
     var acc_color = vec4<f32>(0.0);
-    var weight = 0.0025;
 
     var ct = 0.0;
 
     for (var dx = -1.0; dx <= 1.0; dx = dx + 1.0) {
         for (var dy = -1.0; dy <= 1.0; dy = dy + 1.0) {
-            acc_color += textureSample(t_diffuse, s_diffuse, tex_coords + vec2<f32>(dx * weight, dy * weight));
+            acc_color += textureSample(t_diffuse, s_diffuse, tex_coords + viewport_resolution * vec2<f32>(dx, dy));
             ct = ct + 1.0;
         }
     }

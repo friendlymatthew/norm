@@ -375,7 +375,7 @@ impl<'a> State<'a> {
                 }
                 KeyCode::ArrowUp => {
                     if state == &ElementState::Pressed && self.blur {
-                        self.blur_radius = (self.blur_radius + 2).min(35);
+                        self.blur_radius = (self.blur_radius + 2).min(61);
                     }
 
                     true
@@ -437,8 +437,6 @@ impl<'a> State<'a> {
             0,
             bytemuck::cast_slice(&[self.blur_uniform]),
         );
-
-        println!("blur radius: {}", self.blur_radius);
     }
 
     fn render(&self) -> Result<(), wgpu::SurfaceError> {
