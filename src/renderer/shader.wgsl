@@ -87,12 +87,13 @@ fn box_blur(tex_coords: vec2<f32>, viewport_resolution: vec2<f32>) -> vec4<f32> 
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+
     if blur_uniform.blur == 1u {
         var viewport_resolution = 1.0 / vec2(f32(blur_uniform.width), f32(blur_uniform.height));
-        return gaussian_blur(in.tex_coords, f32(blur_uniform.radius), viewport_resolution);
+        pixels = gaussian_blur(in.tex_coords, f32(blur_uniform.radius), viewport_resolution);
     }
 
-    var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
 
     if color_tone_uniform.gamma != 0u {
         // todo! modify the pixels to account for gamma
@@ -101,11 +102,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     if color_tone_uniform.grayscale == 1u {
         var y = (pixels.r * 0.29891 + pixels.g * 0.58661 + pixels.b * 0.11448);
-        return vec4<f32>(y, y, y, 1.0);
+        pixels = vec4(y, y, y, 1.0);
     }
 
     if color_tone_uniform.sepia == 1u {
-        return vec4<f32>(
+        pixels = vec4<f32>(
             0.393 * pixels.r + 0.769 * pixels.g + 0.189 * pixels.b,
             0.349 * pixels.r + 0.686 * pixels.g + 0.168 * pixels.b,
             0.272 * pixels.r + 0.534 * pixels.g + 0.131 * pixels.b,
@@ -114,7 +115,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     if color_tone_uniform.invert == 1u {
-        return vec4<f32>(
+        pixels = vec4<f32>(
             1.0 - pixels.r,
             1.0 - pixels.g,
             1.0 - pixels.b,
