@@ -11,7 +11,7 @@ impl BlurUniform {
     pub(crate) const fn new(width: u32, height: u32) -> Self {
         Self {
             blur: 0,
-            radius: 31,
+            radius: 21,
             width,
             height,
         }

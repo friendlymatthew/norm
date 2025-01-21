@@ -375,7 +375,7 @@ impl<'a> State<'a> {
                 }
                 KeyCode::ArrowUp => {
                     if state == &ElementState::Pressed && self.blur {
-                        self.blur_radius = (self.blur_radius + 2).min(61);
+                        self.blur_radius = (self.blur_radius + 2).min(31);
                     }
 
                     true
