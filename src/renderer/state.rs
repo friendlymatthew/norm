@@ -173,7 +173,7 @@ impl<'a> State<'a> {
             label: Some("diffuse_bind_group"),
         });
 
-        let blur_uniform = BlurUniform::new();
+        let blur_uniform = BlurUniform::new(config.width, config.height);
 
         let blur_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Blur Buffer"),
@@ -375,14 +375,14 @@ impl<'a> State<'a> {
                 }
                 KeyCode::ArrowUp => {
                     if state == &ElementState::Pressed && self.blur {
-                        self.blur_radius = (self.blur_radius + 1).min(8);
+                        self.blur_radius = (self.blur_radius + 2).min(35);
                     }
 
                     true
                 }
                 KeyCode::ArrowDown => {
                     if state == &ElementState::Pressed && self.blur {
-                        self.blur_radius = (self.blur_radius - 1).max(3);
+                        self.blur_radius = (self.blur_radius - 2).max(3);
                     }
 
                     true
@@ -426,12 +426,19 @@ impl<'a> State<'a> {
             bytemuck::cast_slice(&[self.color_tone_uniform]),
         );
 
-        self.blur_uniform.update(self.blur, self.blur_radius);
+        self.blur_uniform.update(
+            self.blur,
+            self.blur_radius,
+            self.config.width,
+            self.config.height,
+        );
         self.queue.write_buffer(
             &self.blur_buffer,
             0,
             bytemuck::cast_slice(&[self.blur_uniform]),
         );
+
+        println!("blur radius: {}", self.blur_radius);
     }
 
     fn render(&self) -> Result<(), wgpu::SurfaceError> {
