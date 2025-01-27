@@ -350,6 +350,7 @@ impl<'a> Decoder<'a> {
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),
                 b"IEND" => break,
                 b"gAMA" => Chunk::Gamma(self.read_u32()?),
+                b"sRGB" => todo!("Parse srgb chunks"),
                 _foreign => {
                     // todo! how would ancillary chunks be parsed?
                     self.cursor += length;
