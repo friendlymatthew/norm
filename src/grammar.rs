@@ -117,6 +117,10 @@ impl Png {
         self.height
     }
 
+    pub const fn gamma(&self) -> u32 {
+        self.gamma
+    }
+
     /// The dimensions of the image (width, height).
     pub const fn dimensions(&self) -> (u32, u32) {
         (self.width, self.height)
@@ -124,6 +128,40 @@ impl Png {
 
     pub const fn color_type(&self) -> ColorType {
         self.color_type
+    }
+
+    pub fn to_rgb8(&self) -> Cow<'_, [u8]> {
+        match self.color_type {
+            ColorType::RGB => Cow::from(&self.pixel_buffer),
+            ColorType::RGBA => {
+                let b = self
+                    .pixel_buffer
+                    .chunks_exact(4)
+                    .flat_map(|b| [b[0], b[1], b[2]])
+                    .collect::<Vec<_>>();
+
+                Cow::from(b)
+            }
+            ColorType::GrayscaleAlpha => {
+                let b = self
+                    .pixel_buffer
+                    .chunks_exact(2)
+                    .flat_map(|b| [b[0], b[0], b[0]])
+                    .collect::<Vec<u8>>();
+
+                Cow::from(b)
+            }
+            ColorType::Grayscale => {
+                let b = self
+                    .pixel_buffer
+                    .iter()
+                    .flat_map(|&y| [y, y, y])
+                    .collect::<Vec<u8>>();
+
+                Cow::from(b)
+            }
+            foreign => unimplemented!("{:?}", foreign),
+        }
     }
 
     pub fn to_rgba8(&self) -> Cow<'_, [u8]> {
