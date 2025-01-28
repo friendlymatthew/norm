@@ -436,10 +436,11 @@ mod tests {
     }
 
     fn compare_png(image_title: &str) -> Result<()> {
-        let expected_png = Png::read_from_binary_blob(&format!("./tests/{}", image_title).into())
-            .map_err(|err| anyhow!("Try regenerating the blob: {:?}", err))?;
+        let expected_png =
+            Png::read_from_binary_blob(&format!("./test_suite/{}", image_title).into())
+                .map_err(|err| anyhow!("Try regenerating the blob: {:?}", err))?;
 
-        let path = format!("./tests/{}.png", image_title);
+        let path = format!("./test_suite/{}.png", image_title);
 
         let content = std::fs::read(&path)?;
         let generated_png = Decoder::new(&content).decode()?;
@@ -460,31 +461,31 @@ mod tests {
 
     #[test]
     fn test_basic_grayscale_8bit() -> Result<()> {
-        // generate_blob("./tests/basn0g08")?;
+        // generate_blob("./test_suite/basn0g08")?;
         compare_png("basn0g08")?;
         Ok(())
     }
 
     #[test]
     fn test_basic_grayscale_alpha_8bit() -> Result<()> {
-        // generate_blob("./tests/basn4a08")?;
+        // generate_blob("./test_suite/basn4a08")?;
         compare_png("basn4a08")?;
         Ok(())
     }
 
     #[test]
     fn test_basic_rgb_alpha_8bit() -> Result<()> {
-        // generate_blob("./tests/basn6a08")?;
+        // generate_blob("./test_suite/basn6a08")?;
         compare_png("basn6a08")?;
         Ok(())
     }
 
     #[test]
     fn test_filter_0() -> Result<()> {
-        // generate_blob("./tests/f00n2c08")?;
+        // generate_blob("./test_suite/f00n2c08")?;
         compare_png("f00n2c08")?;
 
-        // generate_blob("./tests/f00n0g08")?;
+        // generate_blob("./test_suite/f00n0g08")?;
         compare_png("f00n0g08")?;
 
         Ok(())
@@ -492,40 +493,40 @@ mod tests {
 
     #[test]
     fn test_filter_1() -> Result<()> {
-        // generate_blob("./tests/f01n2c08")?;
+        // generate_blob("./test_suite/f01n2c08")?;
         compare_png("f01n2c08")?;
 
-        // generate_blob("./tests/f01n0g08")?;
+        // generate_blob("./test_suite/f01n0g08")?;
         compare_png("f01n0g08")?;
         Ok(())
     }
 
     #[test]
     fn test_filter_2() -> Result<()> {
-        // generate_blob("./tests/f02n2c08")?;
+        // generate_blob("./test_suite/f02n2c08")?;
         compare_png("f02n2c08")?;
 
-        // generate_blob("./tests/f02n0g08")?;
+        // generate_blob("./test_suite/f02n0g08")?;
         compare_png("f02n0g08")?;
         Ok(())
     }
 
     #[test]
     fn test_filter_3() -> Result<()> {
-        // generate_blob("./tests/f03n2c08")?;
+        // generate_blob("./test_suite/f03n2c08")?;
         compare_png("f03n2c08")?;
 
-        // generate_blob("./tests/f03n0g08")?;
+        // generate_blob("./test_suite/f03n0g08")?;
         compare_png("f03n0g08")?;
         Ok(())
     }
 
     #[test]
     fn test_filter_4() -> Result<()> {
-        // generate_blob("./tests/f04n2c08")?;
+        // generate_blob("./test_suite/f04n2c08")?;
         compare_png("f04n2c08")?;
 
-        // generate_blob("./tests/f04n0g08")?;
+        // generate_blob("./test_suite/f04n0g08")?;
         compare_png("f04n0g08")?;
         Ok(())
     }

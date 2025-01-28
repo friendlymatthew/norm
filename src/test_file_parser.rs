@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn parse_every_file() -> Result<()> {
-        for entry in fs::read_dir("./tests")? {
+        for entry in fs::read_dir("./test_suite")? {
             let path = entry?.path();
 
             if let Some(true) = path

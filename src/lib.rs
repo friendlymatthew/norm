@@ -6,6 +6,7 @@ use wasm_bindgen::prelude::*;
 pub use decoder::*;
 pub use grammar::*;
 pub mod renderer;
+pub mod ssim;
 pub mod test_file_parser;
 
 mod crc32;

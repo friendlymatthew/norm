@@ -14,4 +14,4 @@ if [ ! -f "$FILE" ]; then
     exit 1
 fi
 
-cargo b --release && samply record ./target/release/profile "$FILE"
+cargo b --release && samply record ./target/release/decode "$FILE"
