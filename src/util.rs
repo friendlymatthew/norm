@@ -19,14 +19,14 @@ pub enum Event {
 }
 
 impl Event {
-    fn color(&self) -> &'static str {
+    const fn color(&self) -> &'static str {
         match self {
-            Event::Info => "",
-            Event::TotalElapsed => YELLOW,
-            Event::ParseChunks => MAGENTA,
-            Event::CollectImageChunks => CYAN,
-            Event::FlateDecompress => GREEN,
-            Event::RowFilters => BLUE,
+            Self::Info => "",
+            Self::TotalElapsed => YELLOW,
+            Self::ParseChunks => MAGENTA,
+            Self::CollectImageChunks => CYAN,
+            Self::FlateDecompress => GREEN,
+            Self::RowFilters => BLUE,
         }
     }
 }
