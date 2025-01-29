@@ -1,5 +1,11 @@
 # png
 
+<p align="center">
+    <img src="tests/gray_diaz.png" alt="Gray Nick Diaz" width="250"/>
+    <img src="tests/diaz.png" alt="Nick Diaz" width="250"/>
+    <img src="tests/diaz_blur.png" alt="Blur Nick Diaz" width="250"/>
+</p>
+
 This project aims to provide a PNG decoder backed by a feature-rich GPU-based renderer.
 
 As a decoder, this project uses the [PNG test suite](http://www.schaik.com/pngsuite/) to validate its ability to handle
@@ -13,7 +19,6 @@ blur, and resizing.
 To render an image, run `cargo run --release <image_path>`. For example:
 
 ```bash
-# cd png
 cargo run --release ./tests/obama.png
 ```
 
@@ -32,9 +37,23 @@ cargo r --bin png-test-suite
 
 ## Reading
 
+### PNG Specification
+
 http://www.libpng.org/pub/png/pngintro.html<br>
 https://www.w3.org/TR/2003/REC-PNG-20031110/<br>
 http://www.libpng.org/pub/png/pngpic2.html<br>
 https://www.w3.org/Graphics/PNG/platform.html<br>
 
-https://sotrh.github.io/learn-wgpu/<br>
+### GPU Rendering
+
+https://sotrh.github.io/learn-wgpu/beginner/tutorial5-textures/<br>
+
+### Image Processing
+
+https://www.cns.nyu.edu/pub/lcv/wang03-preprint.pdf<br>
+https://www.cns.nyu.edu/pub/eero/wang03b.pdf<br>
+https://ece.uwaterloo.ca/~z70wang/research/ssim/<br>
+http://arxiv.org/pdf/2006.13846<br>
+
+https://www.youtube.com/watch?v=KuXjwB4LzSA<br>
+https://www.shadertoy.com/view/4tSyzy<br>
