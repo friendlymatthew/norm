@@ -1,5 +1,4 @@
-use crate::ssim::LumaBuffer;
-use anyhow::{bail, ensure, Result};
+use anyhow::{bail, Result};
 #[cfg(test)]
 use std::io::Write;
 use std::{borrow::Cow, collections::BTreeMap, slice::ChunksExact};
@@ -235,97 +234,6 @@ impl Png {
             .chunks_exact(4)
             .map(|b| u32::from_be_bytes([b[3], b[0], b[1], b[2]]))
             .collect::<Vec<u32>>()
-    }
-
-    /// Return luma values normalized to [0.0, 1.0] and the mean intensity.
-    fn luma_buffer(&self) -> LumaBuffer {
-        match self.color_type {
-            ColorType::Grayscale => {
-                let mut lumas = vec![0.0; self.pixel_buffer.len()];
-                let mut mean_intensity = 0.0;
-
-                self.pixel_buffer.iter().enumerate().for_each(|(i, &y)| {
-                    lumas[i] = y as f32; // todo! What about other bit depths (not 8-bit)?
-                    mean_intensity += lumas[i];
-                });
-
-                mean_intensity /= lumas.len() as f32;
-
-                LumaBuffer::new(lumas, mean_intensity)
-            }
-            ColorType::GrayscaleAlpha => {
-                let mut lumas = vec![0.0; self.pixel_buffer.len() / 2];
-                let mut mean_intensity = 0.0;
-
-                self.pixel_buffer
-                    .chunks_exact(2)
-                    .enumerate()
-                    .for_each(|(i, b)| {
-                        lumas[i] = b[0] as f32 / 255.0;
-                        mean_intensity += lumas[i];
-                    });
-
-                mean_intensity /= lumas.len() as f32;
-                LumaBuffer::new(lumas, mean_intensity)
-            }
-            ColorType::RGB => {
-                let mut lumas = vec![0.0; self.pixel_buffer.len() / 3];
-                let mut mean_intensity = 0.0;
-
-                self.pixel_buffer
-                    .chunks_exact(3)
-                    .enumerate()
-                    .for_each(|(i, rgb)| {
-                        let (r, g, b) = (rgb[0] as f32, rgb[1] as f32, rgb[2] as f32);
-
-                        lumas[i] = r * 0.29891 + g * 0.58661 + b * 0.11448;
-                        mean_intensity += lumas[i];
-                    });
-
-                mean_intensity /= lumas.len() as f32;
-                LumaBuffer::new(lumas, mean_intensity)
-            }
-            ColorType::RGBA => {
-                let mut lumas = vec![0.0; self.pixel_buffer.len() / 4];
-                let mut mean_intensity = 0.0;
-
-                self.pixel_buffer
-                    .chunks_exact(4)
-                    .enumerate()
-                    .for_each(|(i, rgb)| {
-                        let (r, g, b) = (rgb[0] as f32, rgb[1] as f32, rgb[2] as f32);
-
-                        lumas[i] = r * 0.29891 + g * 0.58661 + b * 0.11448;
-                        mean_intensity += lumas[i];
-                    });
-
-                mean_intensity /= lumas.len() as f32;
-                LumaBuffer::new(lumas, mean_intensity)
-            }
-            foreign => unimplemented!(
-                "What does a luma buffer look like for palette: {:?}",
-                foreign
-            ),
-        }
-    }
-
-    /// `compute_ssim` takes a full-reference image to calculate the global structural similarity index.
-    /// A value closer to 1 indicates better image quality.
-    pub fn compute_sim(&self, reference_image: &Self) -> Result<f32> {
-        ensure!(
-            self.dimensions() == reference_image.dimensions(),
-            "Expect reference and test images to have identical dimensions."
-        );
-
-        let reference_luma_buffer = reference_image.luma_buffer();
-        let test_luma_buffer = self.luma_buffer();
-
-        assert_eq!(
-            reference_luma_buffer.lumas.len(),
-            test_luma_buffer.lumas.len()
-        );
-
-        Ok(test_luma_buffer.ssim(&reference_luma_buffer))
     }
 
     #[cfg(test)]
