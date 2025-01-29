@@ -22,7 +22,6 @@ path = "src/bin/ssim.rs"
 name = "png-test-suite"
 path = "src/bin/test_suite.rs"
 
-
 [lib]
 crate-type = ["cdylib", "rlib"]
 
@@ -31,6 +30,9 @@ debug = 1
 panic = "abort"
 lto = true
 codegen-units = 1
+
+[features]
+time = []
 
 [dependencies]
 crc32fast = "1.4.2"

@@ -19,17 +19,20 @@ blur, and resizing.
 To render an image, run `cargo run --release <image_path>`. For example:
 
 ```bash
-cargo run --release ./tests/obama.png
+cargo r --release ./tests/obama.png
 ```
 
 ### Additional Scripts
 
 ```bash
-# Run the PNG test suite
-cargo r --bin png-test-suite
-
 # Profile the decoder
 ./profile_decoder.sh ./tests/reagan.png
+
+# Run ad-hoc benchmarks
+cargo r --release --bin decode --features time ./tests/Periodic_table_large.png
+
+# Run the PNG test suite
+cargo r --bin png-test-suite
 
 # Fuzz the decoder
 ./fuzz.sh
@@ -57,3 +60,7 @@ http://arxiv.org/pdf/2006.13846<br>
 
 https://www.youtube.com/watch?v=KuXjwB4LzSA<br>
 https://www.shadertoy.com/view/4tSyzy<br>
+
+### Miscellaneous
+
+https://optipng.sourceforge.net/pngtech/optipng.html<br>

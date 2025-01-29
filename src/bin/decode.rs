@@ -1,6 +1,12 @@
 use anyhow::{anyhow, Result};
 use png::Decoder;
 
+#[cfg(feature = "time")]
+use png::util::*;
+
+#[cfg(feature = "time")]
+use std::time::Instant;
+
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let image_path = args
@@ -8,8 +14,14 @@ fn main() -> Result<()> {
         .ok_or_else(|| anyhow!("Failed to read image path"))?;
 
     let content = std::fs::read(image_path)?;
+
     let mut decoder = Decoder::new(&content);
+
+    #[cfg(feature = "time")]
+    let a = Instant::now();
     let _ = decoder.decode()?;
+    #[cfg(feature = "time")]
+    log_event("", Event::TotalElapsed, Some(a.elapsed()));
 
     Ok(())
 }

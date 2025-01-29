@@ -1,10 +1,15 @@
-use std::io::Read;
-
 use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
+use std::io::Read;
 
 use crate::interlace::compute_pass_counts;
 use crate::{crc32::compute_crc, Chunk, ColorType, Filter, ImageHeader, Png};
+
+#[cfg(feature = "time")]
+use std::time::Instant;
+
+#[cfg(feature = "time")]
+use crate::util::{log_event, Event};
 
 #[derive(Debug)]
 pub struct Decoder<'a> {
@@ -23,7 +28,15 @@ impl<'a> Decoder<'a> {
             "Invalid PNG file: incorrect signature.",
         );
 
+        #[cfg(feature = "time")]
+        let a = Instant::now();
         let chunks = self.parse_chunks()?;
+        #[cfg(feature = "time")]
+        log_event("", Event::ParseChunks, Some(a.elapsed()));
+
+        #[cfg(feature = "time")]
+        let b = Instant::now();
+
         let mut chunks = chunks.into_iter();
 
         let Some(Chunk::ImageHeader(image_header)) = chunks.next() else {
@@ -58,9 +71,18 @@ impl<'a> Decoder<'a> {
             chunks.next();
         }
 
+        #[cfg(feature = "time")]
+        log_event("", Event::CollectImageChunks, Some(b.elapsed()));
+
+        #[cfg(feature = "time")]
+        let c = Instant::now();
+
         let mut zlib_decoder = ZlibDecoder::new(&compressed_stream[..]);
         let mut input_buffer = Vec::new();
         zlib_decoder.read_to_end(&mut input_buffer)?;
+
+        #[cfg(feature = "time")]
+        log_event("", Event::FlateDecompress, Some(c.elapsed()));
 
         // filter
         ensure!(
@@ -70,11 +92,17 @@ impl<'a> Decoder<'a> {
 
         ensure!(!input_buffer.is_empty(), "Input buffer is empty.");
 
+        #[cfg(feature = "time")]
+        let d = Instant::now();
+
         let pixel_buffer = if image_header.interlace_method {
             self.adam7_deinterlace(&image_header, &input_buffer)?
         } else {
             self.non_interlaced(&image_header, &input_buffer)?
         };
+
+        #[cfg(feature = "time")]
+        log_event("", Event::RowFilters, Some(d.elapsed()));
 
         Ok(Png {
             width: image_header.width,

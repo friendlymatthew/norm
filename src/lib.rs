@@ -13,3 +13,4 @@ mod crc32;
 mod decoder;
 mod grammar;
 mod interlace;
+pub mod util;
