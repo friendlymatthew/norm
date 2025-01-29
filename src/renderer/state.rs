@@ -373,51 +373,42 @@ impl<'a> State<'a> {
                         ..
                     },
                 ..
-            } => match keycode {
-                KeyCode::KeyB => {
-                    match state {
-                        ElementState::Pressed => self.blur = true,
-                        ElementState::Released => self.blur = false,
-                    }
-
+            } => match (keycode, state) {
+                (KeyCode::KeyC, ElementState::Pressed) => {
+                    self.blur = false;
+                    self.grayscale = false;
+                    self.sepia = false;
+                    self.invert_color = false;
                     true
                 }
-                KeyCode::ArrowUp => {
-                    if state == &ElementState::Pressed && self.blur {
+                (KeyCode::KeyB, ElementState::Pressed) => {
+                    self.blur = !self.blur;
+                    true
+                }
+                (KeyCode::ArrowUp, ElementState::Pressed) => {
+                    if self.blur {
                         self.blur_radius = (self.blur_radius + 2).min(31);
                     }
 
                     true
                 }
-                KeyCode::ArrowDown => {
-                    if state == &ElementState::Pressed && self.blur {
+                (KeyCode::ArrowDown, ElementState::Pressed) => {
+                    if self.blur {
                         self.blur_radius = (self.blur_radius - 2).max(3);
                     }
 
                     true
                 }
-                KeyCode::KeyG => {
-                    match state {
-                        ElementState::Pressed => self.grayscale = true,
-                        ElementState::Released => self.grayscale = false,
-                    }
-
+                (KeyCode::KeyG, ElementState::Pressed) => {
+                    self.grayscale = !self.grayscale;
                     true
                 }
-                KeyCode::KeyS => {
-                    match state {
-                        ElementState::Pressed => self.sepia = true,
-                        ElementState::Released => self.sepia = false,
-                    }
-
+                (KeyCode::KeyS, ElementState::Pressed) => {
+                    self.sepia = !self.sepia;
                     true
                 }
-                KeyCode::KeyI => {
-                    match state {
-                        ElementState::Pressed => self.invert_color = true,
-                        ElementState::Released => self.invert_color = false,
-                    }
-
+                (KeyCode::KeyI, ElementState::Pressed) => {
+                    self.invert_color = !self.invert_color;
                     true
                 }
                 _ => false,
