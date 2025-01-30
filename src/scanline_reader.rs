@@ -1,9 +1,11 @@
+#![allow(clippy::needless_lifetimes)]
+
 use crate::interlace::compute_pass_counts;
 use crate::{Filter, ImageHeader};
 use anyhow::Result;
 
 #[derive(Debug)]
-pub(crate) struct ScanlineReader<'a> {
+pub struct ScanlineReader<'a> {
     input_buffer: &'a [u8],
     image_header: &'a ImageHeader,
 }
@@ -23,7 +25,7 @@ impl<'a> ScanlineReader<'a> {
         }
     }
 
-    pub(crate) fn read_lines(&mut self) -> Result<Vec<u8>> {
+    pub(crate) fn read_lines(&self) -> Result<Vec<u8>> {
         if self.image_header.interlace_method {
             self.adam7_deinterlace()
         } else {

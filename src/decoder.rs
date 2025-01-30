@@ -94,7 +94,7 @@ impl<'a> Decoder<'a> {
         #[cfg(feature = "time")]
         let d = Instant::now();
 
-        let mut scanline_reader = ScanlineReader::new(&input_buffer, &image_header);
+        let scanline_reader = ScanlineReader::new(&input_buffer, &image_header);
         let pixel_buffer = scanline_reader.read_lines()?;
 
         #[cfg(feature = "time")]
