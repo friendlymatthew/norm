@@ -335,8 +335,6 @@ impl<'a> State<'a> {
                 (KeyCode::ArrowUp, ElementState::Pressed) => {
                     if feature_uniform.blur() {
                         feature_uniform.increase_blur_radius();
-
-                        dbg!(&feature_uniform.blur_radius);
                     }
 
                     if feature_uniform.sharpen() {
@@ -366,6 +364,10 @@ impl<'a> State<'a> {
                 }
                 (KeyCode::KeyI, ElementState::Pressed) => {
                     feature_uniform.toggle_invert();
+                    true
+                }
+                (KeyCode::KeyE, ElementState::Pressed) => {
+                    feature_uniform.toggle_edge_detect();
                     true
                 }
                 _ => false,

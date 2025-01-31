@@ -6,11 +6,12 @@ pub struct FeatureUniform {
     invert: u32,
     gamma: u32,
     blur: u32,
-    pub(crate) blur_radius: u32,
+    blur_radius: u32,
     width: u32,
     height: u32,
     sharpen: u32,
-    pub(crate) sharpen_factor: u32,
+    sharpen_factor: u32,
+    edge_detect: u32,
 }
 
 impl FeatureUniform {
@@ -26,6 +27,7 @@ impl FeatureUniform {
             blur_radius: 21,
             sharpen: 0,
             sharpen_factor: 16,
+            edge_detect: 0,
         }
     }
 
@@ -35,6 +37,7 @@ impl FeatureUniform {
         self.invert = 0;
         self.blur = 0;
         self.sharpen = 0;
+        self.edge_detect = 0;
     }
 }
 
@@ -103,5 +106,15 @@ impl FeatureUniform {
 
     pub(crate) fn decrease_sharpen_factor(&mut self) {
         self.sharpen_factor = (self.sharpen_factor - 1).max(Self::MIN_SHARPEN_FACTOR);
+    }
+}
+
+impl FeatureUniform {
+    pub(crate) const fn edge_detect(&self) -> bool {
+        self.edge_detect == 1
+    }
+
+    pub(crate) fn toggle_edge_detect(&mut self) {
+        self.edge_detect = !self.edge_detect() as u32;
     }
 }
