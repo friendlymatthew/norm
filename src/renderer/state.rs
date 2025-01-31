@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Result};
 use std::iter;
 
-use crate::renderer::blur::BlurUniform;
-use crate::renderer::color_tone::ColorToneUniform;
+use crate::renderer::feature_uniform::FeatureUniform;
 use crate::{
     renderer::{Texture, Vertex},
     Png,
@@ -54,19 +53,10 @@ struct State<'a> {
     diffuse_texture: Texture,
     diffuse_bind_group: wgpu::BindGroup,
     window: &'a Window,
-    grayscale: bool,
-    sepia: bool,
-    invert_color: bool,
-    color_tone_uniform: ColorToneUniform,
-    color_tone_buffer: wgpu::Buffer,
-    color_tone_bind_group: wgpu::BindGroup,
-    blur: bool,
-    blur_radius: u32,
-    sharpen: bool,
-    sharpen_factor: u32,
-    blur_uniform: BlurUniform,
-    blur_buffer: wgpu::Buffer,
-    blur_bind_group: wgpu::BindGroup,
+
+    feature_uniform: FeatureUniform,
+    feature_buffer: wgpu::Buffer,
+    feature_bind_group: wgpu::BindGroup,
 }
 
 impl<'a> State<'a> {
@@ -174,47 +164,15 @@ impl<'a> State<'a> {
             label: Some("diffuse_bind_group"),
         });
 
-        let blur_uniform = BlurUniform::new(config.width, config.height);
+        let feature_uniform = FeatureUniform::new(config.width, config.height, png.gamma);
 
-        let blur_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Blur Buffer"),
-            contents: bytemuck::cast_slice(&[blur_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let blur_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("blur_bind_group_layout"),
-            });
-
-        let blur_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &blur_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: blur_buffer.as_entire_binding(),
-            }],
-            label: Some("blur_bind_group"),
-        });
-
-        let color_tone_uniform = ColorToneUniform::new(png.gamma);
-
-        let color_tone_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let feature_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Color Tone Buffer"),
-            contents: bytemuck::cast_slice(&[color_tone_uniform]),
+            contents: bytemuck::cast_slice(&[feature_uniform]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let color_tone_bind_group_layout =
+        let feature_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -226,16 +184,16 @@ impl<'a> State<'a> {
                     },
                     count: None,
                 }],
-                label: Some("color_tone_bind_group_layout"),
+                label: Some("feature_bind_group_layout"),
             });
 
-        let color_tone_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &color_tone_bind_group_layout,
+        let feature_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &feature_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: color_tone_buffer.as_entire_binding(),
+                resource: feature_buffer.as_entire_binding(),
             }],
-            label: Some("color_tone_bind_group"),
+            label: Some("feature_bind_group"),
         });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -246,11 +204,7 @@ impl<'a> State<'a> {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &texture_bind_group_layout,
-                    &color_tone_bind_group_layout,
-                    &blur_bind_group_layout,
-                ],
+                bind_group_layouts: &[&texture_bind_group_layout, &feature_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -327,19 +281,9 @@ impl<'a> State<'a> {
             diffuse_texture,
             diffuse_bind_group,
             window,
-            grayscale: false,
-            sepia: false,
-            invert_color: false,
-            color_tone_uniform,
-            color_tone_buffer,
-            color_tone_bind_group,
-            blur: false,
-            blur_radius: blur_uniform.radius,
-            sharpen: false,
-            sharpen_factor: blur_uniform.sharpen_factor,
-            blur_uniform,
-            blur_buffer,
-            blur_bind_group,
+            feature_uniform,
+            feature_buffer,
+            feature_bind_group,
         })
     }
 
@@ -368,6 +312,8 @@ impl<'a> State<'a> {
 
     #[allow(unused_variables)]
     fn input(&mut self, event: &WindowEvent) -> bool {
+        let mut feature_uniform = &mut self.feature_uniform;
+
         match event {
             WindowEvent::KeyboardInput {
                 event:
@@ -379,48 +325,47 @@ impl<'a> State<'a> {
                 ..
             } => match (keycode, state) {
                 (KeyCode::KeyC, ElementState::Pressed) => {
-                    self.blur = false;
-                    self.grayscale = false;
-                    self.sepia = false;
-                    self.invert_color = false;
+                    feature_uniform.reset_features();
                     true
                 }
                 (KeyCode::KeyB, ElementState::Pressed) => {
-                    self.blur = !self.blur;
+                    feature_uniform.toggle_blur();
                     true
                 }
                 (KeyCode::ArrowUp, ElementState::Pressed) => {
-                    if self.blur {
-                        self.blur_radius = (self.blur_radius + 2).min(31);
+                    if feature_uniform.blur() {
+                        feature_uniform.increase_blur_radius();
+
+                        dbg!(&feature_uniform.blur_radius);
                     }
 
-                    if self.sharpen {
-                        self.sharpen_factor += 1;
+                    if feature_uniform.sharpen() {
+                        feature_uniform.increase_sharpen_factor();
                     }
 
                     true
                 }
                 (KeyCode::ArrowDown, ElementState::Pressed) => {
-                    if self.blur {
-                        self.blur_radius = (self.blur_radius - 2).max(3);
+                    if feature_uniform.blur() {
+                        feature_uniform.decrease_blur_radius();
                     }
 
-                    if self.sharpen {
-                        self.sharpen_factor -= 1;
+                    if feature_uniform.sharpen() {
+                        feature_uniform.decrease_sharpen_factor();
                     }
 
                     true
                 }
                 (KeyCode::KeyG, ElementState::Pressed) => {
-                    self.grayscale = !self.grayscale;
+                    feature_uniform.toggle_grayscale();
                     true
                 }
                 (KeyCode::KeyS, ElementState::Pressed) => {
-                    self.sharpen = !self.sharpen;
+                    feature_uniform.toggle_sharpen();
                     true
                 }
                 (KeyCode::KeyI, ElementState::Pressed) => {
-                    self.invert_color = !self.invert_color;
+                    feature_uniform.toggle_invert();
                     true
                 }
                 _ => false,
@@ -430,26 +375,10 @@ impl<'a> State<'a> {
     }
 
     fn update(&mut self) {
-        self.color_tone_uniform
-            .update(self.grayscale, self.sepia, self.invert_color);
         self.queue.write_buffer(
-            &self.color_tone_buffer,
+            &self.feature_buffer,
             0,
-            bytemuck::cast_slice(&[self.color_tone_uniform]),
-        );
-
-        self.blur_uniform.update(
-            self.blur,
-            self.blur_radius,
-            self.config.width,
-            self.config.height,
-            self.sharpen,
-            self.sharpen_factor,
-        );
-        self.queue.write_buffer(
-            &self.blur_buffer,
-            0,
-            bytemuck::cast_slice(&[self.blur_uniform]),
+            bytemuck::cast_slice(&[self.feature_uniform]),
         );
     }
 
@@ -488,8 +417,7 @@ impl<'a> State<'a> {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.color_tone_bind_group, &[]);
-            render_pass.set_bind_group(2, &self.blur_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.feature_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);

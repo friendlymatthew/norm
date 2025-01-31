@@ -1,25 +1,20 @@
 // Vertex shader
-struct ColorToneUniform {
+struct FeatureUniform {
     grayscale: u32,
     sepia: u32,
     invert: u32,
     gamma: u32,
-};
-
-struct BlurUniform {
     blur: u32,
     radius: u32,
     width: u32,
     height: u32,
     sharpen: u32,
     sharpen_factor: u32,
-}
+};
+
 
 @group(1) @binding(0)
-var<uniform> color_tone_uniform: ColorToneUniform;
-
-@group(2) @binding(0)
-var<uniform> blur_uniform: BlurUniform;
+var<uniform> feature_uniform: FeatureUniform;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -51,7 +46,7 @@ var s_diffuse: sampler;
 const PI: f32 = 22.0 / 7.0;
 
 fn gaussian(offset: vec2<f32>) -> f32 {
-    var GAUSSIAN_SIGMA: f32 = f32(blur_uniform.radius) * 0.25;
+    var GAUSSIAN_SIGMA: f32 = f32(feature_uniform.radius) * 0.25;
     return 1.0 / (2.0 * PI * GAUSSIAN_SIGMA * GAUSSIAN_SIGMA) * exp(-((offset.x * offset.x + offset.y * offset.y) / (2.0 * GAUSSIAN_SIGMA * GAUSSIAN_SIGMA)));
 }
 
@@ -101,27 +96,27 @@ fn sharpen(tex_coords: vec2<f32>, sharpen_factor: f32, viewport_resolution: vec2
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
-    var viewport_resolution = 1.0 / vec2(f32(blur_uniform.width), f32(blur_uniform.height));
+    var viewport_resolution = 1.0 / vec2(f32(feature_uniform.width), f32(feature_uniform.height));
 
-    if blur_uniform.sharpen == 1u {
-        pixels = sharpen(in.tex_coords, f32(blur_uniform.sharpen_factor), viewport_resolution);
+    if feature_uniform.sharpen == 1u {
+        pixels = sharpen(in.tex_coords, f32(feature_uniform.sharpen_factor), viewport_resolution);
     }
 
-    if blur_uniform.blur == 1u {
-        pixels = gaussian_blur(in.tex_coords, f32(blur_uniform.radius), viewport_resolution);
+    if feature_uniform.blur == 1u {
+        pixels = gaussian_blur(in.tex_coords, f32(feature_uniform.radius), viewport_resolution);
     }
 
-    if color_tone_uniform.gamma != 0u {
+    if feature_uniform.gamma != 0u {
         // todo! modify the pixels to account for gamma
         // see https://www.w3.org/TR/2003/REC-PNG-20031110/#13Decoder-gamma-handling
     }
 
-    if color_tone_uniform.grayscale == 1u {
+    if feature_uniform.grayscale == 1u {
         var y = (pixels.r * 0.29891 + pixels.g * 0.58661 + pixels.b * 0.11448);
         pixels = vec4(y, y, y, 1.0);
     }
 
-    if color_tone_uniform.sepia == 1u {
+    if feature_uniform.sepia == 1u {
         pixels = vec4<f32>(
             0.393 * pixels.r + 0.769 * pixels.g + 0.189 * pixels.b,
             0.349 * pixels.r + 0.686 * pixels.g + 0.168 * pixels.b,
@@ -130,7 +125,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         );
     }
 
-    if color_tone_uniform.invert == 1u {
+    if feature_uniform.invert == 1u {
         pixels = vec4<f32>(
             1.0 - pixels.r,
             1.0 - pixels.g,
