@@ -62,6 +62,8 @@ struct State<'a> {
     color_tone_bind_group: wgpu::BindGroup,
     blur: bool,
     blur_radius: u32,
+    sharpen: bool,
+    sharpen_factor: u32,
     blur_uniform: BlurUniform,
     blur_buffer: wgpu::Buffer,
     blur_bind_group: wgpu::BindGroup,
@@ -333,6 +335,8 @@ impl<'a> State<'a> {
             color_tone_bind_group,
             blur: false,
             blur_radius: blur_uniform.radius,
+            sharpen: false,
+            sharpen_factor: blur_uniform.sharpen_factor,
             blur_uniform,
             blur_buffer,
             blur_bind_group,
@@ -390,11 +394,19 @@ impl<'a> State<'a> {
                         self.blur_radius = (self.blur_radius + 2).min(31);
                     }
 
+                    if self.sharpen {
+                        self.sharpen_factor += 1;
+                    }
+
                     true
                 }
                 (KeyCode::ArrowDown, ElementState::Pressed) => {
                     if self.blur {
                         self.blur_radius = (self.blur_radius - 2).max(3);
+                    }
+
+                    if self.sharpen {
+                        self.sharpen_factor -= 1;
                     }
 
                     true
@@ -404,7 +416,7 @@ impl<'a> State<'a> {
                     true
                 }
                 (KeyCode::KeyS, ElementState::Pressed) => {
-                    self.sepia = !self.sepia;
+                    self.sharpen = !self.sharpen;
                     true
                 }
                 (KeyCode::KeyI, ElementState::Pressed) => {
@@ -431,6 +443,8 @@ impl<'a> State<'a> {
             self.blur_radius,
             self.config.width,
             self.config.height,
+            self.sharpen,
+            self.sharpen_factor,
         );
         self.queue.write_buffer(
             &self.blur_buffer,

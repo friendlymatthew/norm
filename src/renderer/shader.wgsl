@@ -11,6 +11,8 @@ struct BlurUniform {
     radius: u32,
     width: u32,
     height: u32,
+    sharpen: u32,
+    sharpen_factor: u32,
 }
 
 @group(1) @binding(0)
@@ -85,15 +87,29 @@ fn box_blur(tex_coords: vec2<f32>, viewport_resolution: vec2<f32>) -> vec4<f32> 
     return acc_color / ct;
 }
 
+fn sharpen(tex_coords: vec2<f32>, sharpen_factor: f32, viewport_resolution: vec2<f32>) -> vec4<f32> {
+    var center = textureSample(t_diffuse, s_diffuse, tex_coords);
+
+    var up = textureSample(t_diffuse, s_diffuse, tex_coords + (vec2(0, 1) * viewport_resolution));
+    var left = textureSample(t_diffuse, s_diffuse, tex_coords + (vec2(-1, 0) * viewport_resolution));
+    var right = textureSample(t_diffuse, s_diffuse, tex_coords + (vec2(1, 0) * viewport_resolution));
+    var down = textureSample(t_diffuse, s_diffuse, tex_coords + (vec2(0, -1) * viewport_resolution));
+
+    return (1.0 + 4.0 * sharpen_factor) * center - sharpen_factor * (up + left + right + down);
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+    var viewport_resolution = 1.0 / vec2(f32(blur_uniform.width), f32(blur_uniform.height));
 
-    if blur_uniform.blur == 1u {
-        var viewport_resolution = 1.0 / vec2(f32(blur_uniform.width), f32(blur_uniform.height));
-        pixels = gaussian_blur(in.tex_coords, f32(blur_uniform.radius), viewport_resolution);
+    if blur_uniform.sharpen == 1u {
+        pixels = sharpen(in.tex_coords, f32(blur_uniform.sharpen_factor), viewport_resolution);
     }
 
+    if blur_uniform.blur == 1u {
+        pixels = gaussian_blur(in.tex_coords, f32(blur_uniform.radius), viewport_resolution);
+    }
 
     if color_tone_uniform.gamma != 0u {
         // todo! modify the pixels to account for gamma
