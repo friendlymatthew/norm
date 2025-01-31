@@ -2,7 +2,7 @@
 #[derive(Debug, Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct FeatureUniform {
     grayscale: u32,
-    sepia: u32,
+    // sepia: u32,
     invert: u32,
     gamma: u32,
     blur: u32,
@@ -17,7 +17,7 @@ impl FeatureUniform {
     pub(crate) const fn new(width: u32, height: u32, gamma: u32) -> Self {
         Self {
             grayscale: 0,
-            sepia: 0,
+            // sepia: 0,
             invert: 0,
             gamma,
             width,
@@ -31,7 +31,7 @@ impl FeatureUniform {
 
     pub(crate) fn reset_features(&mut self) {
         self.grayscale = 0;
-        self.sepia = 0;
+        // self.sepia = 0;
         self.invert = 0;
         self.blur = 0;
         self.sharpen = 0;
@@ -39,15 +39,15 @@ impl FeatureUniform {
 }
 
 impl FeatureUniform {
-    pub(crate) fn grayscale(&self) -> bool {
+    pub(crate) const fn grayscale(&self) -> bool {
         self.grayscale == 1
     }
 
-    pub(crate) fn sepia(&self) -> bool {
-        self.sepia == 1
-    }
+    // pub(crate) const fn sepia(&self) -> bool {
+    //     self.sepia == 1
+    // }
 
-    pub(crate) fn invert(&self) -> bool {
+    pub(crate) const fn invert(&self) -> bool {
         self.invert == 1
     }
 
@@ -55,9 +55,9 @@ impl FeatureUniform {
         self.grayscale = !self.grayscale() as u32;
     }
 
-    pub(crate) fn toggle_sepia(&mut self) {
-        self.sepia = !self.sepia() as u32;
-    }
+    // pub(crate) fn toggle_sepia(&mut self) {
+    //     self.sepia = !self.sepia() as u32;
+    // }
 
     pub(crate) fn toggle_invert(&mut self) {
         self.invert = !self.invert() as u32;
@@ -68,7 +68,7 @@ impl FeatureUniform {
     const MAX_BLUR_RADIUS: u32 = 39;
     const MIN_BLUR_RADIUS: u32 = 3;
 
-    pub(crate) fn blur(&self) -> bool {
+    pub(crate) const fn blur(&self) -> bool {
         self.blur == 1
     }
 
@@ -89,7 +89,7 @@ impl FeatureUniform {
     const MAX_SHARPEN_FACTOR: u32 = 40;
     const MIN_SHARPEN_FACTOR: u32 = 1;
 
-    pub(crate) fn sharpen(&self) -> bool {
+    pub(crate) const fn sharpen(&self) -> bool {
         self.sharpen == 1
     }
 

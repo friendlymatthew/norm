@@ -312,7 +312,7 @@ impl<'a> State<'a> {
 
     #[allow(unused_variables)]
     fn input(&mut self, event: &WindowEvent) -> bool {
-        let mut feature_uniform = &mut self.feature_uniform;
+        let feature_uniform = &mut self.feature_uniform;
 
         match event {
             WindowEvent::KeyboardInput {
@@ -374,7 +374,7 @@ impl<'a> State<'a> {
         }
     }
 
-    fn update(&mut self) {
+    fn update(&self) {
         self.queue.write_buffer(
             &self.feature_buffer,
             0,
