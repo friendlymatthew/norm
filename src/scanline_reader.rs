@@ -16,7 +16,7 @@ impl<'a> ScanlineReader<'a> {
 
         assert_eq!(
             input_buffer.len() - image_header.height as usize,
-            row_bytes * image_header.width as usize
+            row_bytes * image_header.height as usize
         );
 
         Self {
