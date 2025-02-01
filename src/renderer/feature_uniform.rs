@@ -24,9 +24,9 @@ impl FeatureUniform {
             width,
             height,
             blur: 0,
-            blur_radius: 21,
+            blur_radius: Self::DEFAULT_BLUR_RADIUS,
             sharpen: 0,
-            sharpen_factor: 16,
+            sharpen_factor: Self::DEFAULT_SHARPEN_FACTOR,
             edge_detect: 0,
         }
     }
@@ -68,6 +68,7 @@ impl FeatureUniform {
 }
 
 impl FeatureUniform {
+    const DEFAULT_BLUR_RADIUS: u32 = 21;
     const MAX_BLUR_RADIUS: u32 = 39;
     const MIN_BLUR_RADIUS: u32 = 3;
 
@@ -89,6 +90,7 @@ impl FeatureUniform {
 }
 
 impl FeatureUniform {
+    const DEFAULT_SHARPEN_FACTOR: u32 = 16;
     const MAX_SHARPEN_FACTOR: u32 = 40;
     const MIN_SHARPEN_FACTOR: u32 = 1;
 
