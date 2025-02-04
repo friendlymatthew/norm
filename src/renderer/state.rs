@@ -1,12 +1,23 @@
-use anyhow::{anyhow, Result};
-use std::iter;
-
 use crate::renderer::feature_uniform::FeatureUniform;
 use crate::{
     renderer::{Texture, Vertex},
     Png,
 };
-use wgpu::util::DeviceExt;
+use anyhow::{anyhow, Result};
+use std::iter;
+use wgpu::{
+    util::{BufferInitDescriptor, DeviceExt},
+    Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendState, Buffer,
+    BufferBindingType, BufferUsages, Color, ColorTargetState, ColorWrites,
+    CommandEncoderDescriptor, Device, DeviceDescriptor, Features, FragmentState, FrontFace,
+    IndexFormat, Instance, InstanceDescriptor, Limits, LoadOp, MultisampleState, Operations,
+    PipelineLayoutDescriptor, PolygonMode, PowerPreference, PrimitiveState, PrimitiveTopology,
+    Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    RenderPipelineDescriptor, RequestAdapterOptions, SamplerBindingType, ShaderModuleDescriptor,
+    ShaderSource, ShaderStages, StoreOp, Surface, SurfaceConfiguration, SurfaceError,
+    TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexState,
+};
 use winit::{
     dpi::PhysicalSize,
     event::*,
@@ -40,23 +51,23 @@ const INDICES: &[u16] = &[
 ];
 
 struct State<'a> {
-    surface: wgpu::Surface<'a>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
+    surface: Surface<'a>,
+    device: Device,
+    queue: Queue,
+    config: SurfaceConfiguration,
     size: PhysicalSize<u32>,
-    render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    render_pipeline: RenderPipeline,
+    vertex_buffer: Buffer,
+    index_buffer: Buffer,
     num_indices: u32,
     #[allow(dead_code)]
     diffuse_texture: Texture,
-    diffuse_bind_group: wgpu::BindGroup,
+    diffuse_bind_group: BindGroup,
     window: &'a Window,
 
     feature_uniform: FeatureUniform,
-    feature_buffer: wgpu::Buffer,
-    feature_bind_group: wgpu::BindGroup,
+    feature_buffer: Buffer,
+    feature_bind_group: BindGroup,
 }
 
 impl<'a> State<'a> {
@@ -65,19 +76,19 @@ impl<'a> State<'a> {
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        let instance = Instance::new(InstanceDescriptor {
             #[cfg(not(target_arch = "wasm32"))]
-            backends: wgpu::Backends::PRIMARY,
+            backends: Backends::PRIMARY,
             #[cfg(target_arch = "wasm32")]
-            backends: wgpu::Backends::GL,
+            backends: Backends::GL,
             ..Default::default()
         });
 
         let surface = instance.create_surface(window)?;
 
         let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
+            .request_adapter(&RequestAdapterOptions {
+                power_preference: PowerPreference::default(),
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
@@ -86,15 +97,15 @@ impl<'a> State<'a> {
 
         let (device, queue) = adapter
             .request_device(
-                &wgpu::DeviceDescriptor {
+                &DeviceDescriptor {
                     label: None,
-                    required_features: wgpu::Features::empty(),
+                    required_features: Features::empty(),
                     // WebGL doesn't support all of wgpu's features, so if
                     // we're building for the web we'll have to disable some.
                     required_limits: if cfg!(target_arch = "wasm32") {
-                        wgpu::Limits::downlevel_webgl2_defaults()
+                        Limits::downlevel_webgl2_defaults()
                     } else {
-                        wgpu::Limits::default()
+                        Limits::default()
                     },
                     memory_hints: Default::default(),
                 },
@@ -113,8 +124,8 @@ impl<'a> State<'a> {
             .find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
 
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        let config = SurfaceConfiguration {
+            usage: TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
             width: size.width,
             height: size.height,
@@ -127,38 +138,38 @@ impl<'a> State<'a> {
         let diffuse_texture = Texture::from_bytes(&device, &queue, png)?;
 
         let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 entries: &[
-                    wgpu::BindGroupLayoutEntry {
+                    BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
                             multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: TextureViewDimension::D2,
+                            sample_type: TextureSampleType::Float { filterable: true },
                         },
                         count: None,
                     },
-                    wgpu::BindGroupLayoutEntry {
+                    BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
                     },
                 ],
                 label: Some("texture_bind_group_layout"),
             });
 
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let diffuse_bind_group = device.create_bind_group(&BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
-                wgpu::BindGroupEntry {
+                BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                    resource: BindingResource::TextureView(&diffuse_texture.view),
                 },
-                wgpu::BindGroupEntry {
+                BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                    resource: BindingResource::Sampler(&diffuse_texture.sampler),
                 },
             ],
             label: Some("diffuse_bind_group"),
@@ -166,19 +177,19 @@ impl<'a> State<'a> {
 
         let feature_uniform = FeatureUniform::new(config.width, config.height, png.gamma);
 
-        let feature_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let feature_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Color Tone Buffer"),
             contents: bytemuck::cast_slice(&[feature_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
 
         let feature_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -187,64 +198,63 @@ impl<'a> State<'a> {
                 label: Some("feature_bind_group_layout"),
             });
 
-        let feature_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let feature_bind_group = device.create_bind_group(&BindGroupDescriptor {
             layout: &feature_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
+            entries: &[BindGroupEntry {
                 binding: 0,
                 resource: feature_buffer.as_entire_binding(),
             }],
             label: Some("feature_bind_group"),
         });
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        let shader = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+            source: ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
         });
 
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &feature_bind_group_layout],
-                push_constant_ranges: &[],
-            });
+        let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: Some("Render Pipeline Layout"),
+            bind_group_layouts: &[&texture_bind_group_layout, &feature_bind_group_layout],
+            push_constant_ranges: &[],
+        });
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
+            vertex: VertexState {
                 module: &shader,
                 entry_point: "vs_main",
                 buffers: &[Vertex::desc()],
                 compilation_options: Default::default(),
             },
-            fragment: Some(wgpu::FragmentState {
+            fragment: Some(FragmentState {
                 module: &shader,
                 entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
+                targets: &[Some(ColorTargetState {
                     format: config.format,
-                    blend: Some(wgpu::BlendState {
-                        color: wgpu::BlendComponent::REPLACE,
-                        alpha: wgpu::BlendComponent::REPLACE,
+                    blend: Some(BlendState {
+                        color: BlendComponent::REPLACE,
+                        alpha: BlendComponent::REPLACE,
                     }),
-                    write_mask: wgpu::ColorWrites::ALL,
+                    write_mask: ColorWrites::ALL,
                 })],
                 compilation_options: Default::default(),
             }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
+                front_face: FrontFace::Ccw,
                 cull_mode: None,
                 // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
                 // or Features::POLYGON_MODE_POINT
-                polygon_mode: wgpu::PolygonMode::Fill,
+                polygon_mode: PolygonMode::Fill,
                 // Requires Features::DEPTH_CLIP_CONTROL
                 unclipped_depth: false,
                 // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
             depth_stencil: None,
-            multisample: wgpu::MultisampleState {
+            multisample: MultisampleState {
                 count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
@@ -256,15 +266,15 @@ impl<'a> State<'a> {
             cache: None,
         });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
+            usage: BufferUsages::VERTEX,
         });
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Index Buffer"),
             contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
+            usage: BufferUsages::INDEX,
         });
         let num_indices = INDICES.len() as u32;
 
@@ -310,7 +320,6 @@ impl<'a> State<'a> {
         }
     }
 
-    #[allow(unused_variables)]
     fn input(&mut self, event: &WindowEvent) -> bool {
         let feature_uniform = &mut self.feature_uniform;
 
@@ -384,32 +393,32 @@ impl<'a> State<'a> {
         );
     }
 
-    fn render(&self) -> Result<(), wgpu::SurfaceError> {
+    fn render(&self) -> Result<(), SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+            .create_view(&TextureViewDescriptor::default());
 
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            .create_command_encoder(&CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
 
         {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                color_attachments: &[Some(RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                    ops: Operations {
+                        load: LoadOp::Clear(Color {
                             r: 0.1,
                             g: 0.2,
                             b: 0.3,
                             a: 1.0,
                         }),
-                        store: wgpu::StoreOp::Store,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
@@ -421,7 +430,7 @@ impl<'a> State<'a> {
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.feature_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 
@@ -510,17 +519,17 @@ pub async fn run(png: Png) -> anyhow::Result<()> {
                             match state.render() {
                                 Ok(_) => {}
                                 // Reconfigure the surface if it's lost or outdated
-                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                Err(SurfaceError::Lost | SurfaceError::Outdated) => {
                                     state.resize(state.size)
                                 }
                                 // The system is out of memory, we should probably quit
-                                Err(wgpu::SurfaceError::OutOfMemory) => {
+                                Err(SurfaceError::OutOfMemory) => {
                                     log::error!("OutOfMemory");
                                     control_flow.exit();
                                 }
 
                                 // This happens when a frame takes too long to present
-                                Err(wgpu::SurfaceError::Timeout) => {
+                                Err(SurfaceError::Timeout) => {
                                     log::warn!("Surface timeout")
                                 }
                             }
