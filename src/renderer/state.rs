@@ -340,6 +340,21 @@ impl<'a> State<'a> {
         let feature_uniform = &mut self.feature_uniform;
 
         match event {
+            WindowEvent::CursorMoved { position, .. } => {
+                let (tex_x, tex_y) = {
+                    let x = position.x as f32;
+                    let y = position.y as f32;
+                    let width = self.config.width as f32;
+                    let height = self.config.height as f32;
+
+                    (2.0 * (x / width) - 1.0, 1.0 - 2.0 * (y / height))
+                };
+
+                let is_inside_quad =
+                    { -0.5 <= tex_x && tex_x <= 0.5 && -0.5 <= tex_y && tex_y <= 0.5 };
+
+                true
+            }
             WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {
