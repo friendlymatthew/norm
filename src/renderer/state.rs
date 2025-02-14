@@ -1,6 +1,9 @@
 use crate::renderer::feature_uniform::FeatureUniform;
+use crate::renderer::image_buffer::ImageBuffer;
+use crate::renderer::rectangle_buffer::RectangleBuffer;
+use crate::renderer::Vertex;
 use crate::{
-    renderer::{Texture, Vertex},
+    renderer::{Texture, TextureVertex},
     Png,
 };
 use anyhow::{anyhow, Result};
@@ -26,30 +29,6 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-1.0, -1.0, 0.0],
-        tex_coords: [0.0, 1.0],
-    },
-    Vertex {
-        position: [-1.0, 1.0, 0.0],
-        tex_coords: [0.0, 0.0],
-    },
-    Vertex {
-        position: [1.0, -1.0, 0.0],
-        tex_coords: [1.0, 1.0],
-    },
-    Vertex {
-        position: [1.0, 1.0, 0.0],
-        tex_coords: [1.0, 0.0],
-    },
-];
-
-const INDICES: &[u16] = &[
-    0, 1, 2, // first triangle
-    2, 1, 3, // second triangle
-];
-
 struct State<'a> {
     surface: Surface<'a>,
     device: Device,
@@ -57,14 +36,13 @@ struct State<'a> {
     config: SurfaceConfiguration,
     size: PhysicalSize<u32>,
     render_pipeline: RenderPipeline,
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
-    num_indices: u32,
+    quad_render_pipeline: RenderPipeline,
     #[allow(dead_code)]
     diffuse_texture: Texture,
     diffuse_bind_group: BindGroup,
     window: &'a Window,
-
+    image_buffer: ImageBuffer,
+    rectangle_buffer: RectangleBuffer,
     feature_uniform: FeatureUniform,
     feature_buffer: Buffer,
     feature_bind_group: BindGroup,
@@ -207,6 +185,59 @@ impl<'a> State<'a> {
             label: Some("feature_bind_group"),
         });
 
+        let quad_shader = device.create_shader_module(ShaderModuleDescriptor {
+            label: Some("Quad Shader"),
+            source: ShaderSource::Wgsl(include_str!("quad_shader.wgsl").into()),
+        });
+
+        let quad_render_pipeline_layout =
+            device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                label: Some("Quad Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                push_constant_ranges: &[],
+            });
+
+        let quad_render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: Some("Quad Render Pipeline"),
+            layout: Some(&quad_render_pipeline_layout),
+            vertex: VertexState {
+                module: &quad_shader,
+                entry_point: "vs_main",
+                buffers: &[Vertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(FragmentState {
+                module: &quad_shader,
+                entry_point: "fs_main",
+                targets: &[Some(ColorTargetState {
+                    format: config.format,
+                    blend: Some(BlendState {
+                        color: BlendComponent::REPLACE,
+                        alpha: BlendComponent::REPLACE,
+                    }),
+                    write_mask: ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+            cache: None,
+        });
+
         let shader = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Shader"),
             source: ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -224,7 +255,7 @@ impl<'a> State<'a> {
             vertex: VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[Vertex::desc()],
+                buffers: &[TextureVertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
@@ -266,17 +297,8 @@ impl<'a> State<'a> {
             cache: None,
         });
 
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: BufferUsages::VERTEX,
-        });
-        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: BufferUsages::INDEX,
-        });
-        let num_indices = INDICES.len() as u32;
+        let image_buffer = ImageBuffer::new(&device);
+        let rectangle_buffer = RectangleBuffer::new(&device);
 
         Ok(Self {
             surface,
@@ -285,15 +307,15 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_indices,
+            quad_render_pipeline,
             diffuse_texture,
             diffuse_bind_group,
             window,
             feature_uniform,
             feature_buffer,
             feature_bind_group,
+            image_buffer,
+            rectangle_buffer,
         })
     }
 
@@ -302,16 +324,6 @@ impl<'a> State<'a> {
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
-        // if new_size.width > 0 && new_size.height > 0 {
-        //     let new_height = (new_size.width * self.config.height) / self.config.width;
-        //     self.size = new_size;
-        //     self.size.height = new_height;
-        //
-        //     self.config.width = new_size.width;
-        //     self.config.height = new_height;
-        //     self.surface.configure(&self.device, &self.config);
-        // }
-
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = new_size.width;
@@ -429,9 +441,21 @@ impl<'a> State<'a> {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.feature_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+            render_pass.set_vertex_buffer(0, self.image_buffer.vertex_buffer().slice(..));
+            render_pass.set_index_buffer(
+                self.image_buffer.index_buffer().slice(..),
+                IndexFormat::Uint16,
+            );
+
+            render_pass.draw_indexed(0..self.image_buffer.num_indices(), 0, 0..1);
+
+            render_pass.set_pipeline(&self.quad_render_pipeline);
+            render_pass.set_vertex_buffer(0, self.rectangle_buffer.vertex_buffer().slice(..));
+            render_pass.set_index_buffer(
+                self.rectangle_buffer.index_buffer().slice(..),
+                IndexFormat::Uint16,
+            );
+            render_pass.draw_indexed(0..self.rectangle_buffer.num_indices(), 0, 0..1);
         }
 
         self.queue.submit(iter::once(encoder.finish()));
