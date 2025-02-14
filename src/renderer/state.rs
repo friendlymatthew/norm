@@ -11,12 +11,12 @@ use std::iter;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendState, Buffer,
-    BufferBindingType, BufferUsages, Color, ColorTargetState, ColorWrites,
-    CommandEncoderDescriptor, Device, DeviceDescriptor, Features, FragmentState, FrontFace,
-    IndexFormat, Instance, InstanceDescriptor, Limits, LoadOp, MultisampleState, Operations,
-    PipelineLayoutDescriptor, PolygonMode, PowerPreference, PrimitiveState, PrimitiveTopology,
-    Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor,
+    BlendOperation, BlendState, Buffer, BufferBindingType, BufferUsages, Color, ColorTargetState,
+    ColorWrites, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, FragmentState,
+    FrontFace, IndexFormat, Instance, InstanceDescriptor, Limits, LoadOp, MultisampleState,
+    Operations, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PrimitiveState,
+    PrimitiveTopology, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
     RenderPipelineDescriptor, RequestAdapterOptions, SamplerBindingType, ShaderModuleDescriptor,
     ShaderSource, ShaderStages, StoreOp, Surface, SurfaceConfiguration, SurfaceError,
     TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexState,
@@ -212,8 +212,12 @@ impl<'a> State<'a> {
                 targets: &[Some(ColorTargetState {
                     format: config.format,
                     blend: Some(BlendState {
-                        color: BlendComponent::REPLACE,
-                        alpha: BlendComponent::REPLACE,
+                        color: BlendComponent {
+                            src_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent::OVER,
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
