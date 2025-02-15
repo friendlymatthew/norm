@@ -9,7 +9,7 @@ pub enum Chunk<'a> {
     ImageHeader(ImageHeader),
     Palette(ChunksExact<'a, u8>),
     ImageData(&'a [u8]),
-    TextData(BTreeMap<&'a [u8], &'a [u8]>),
+    TextData(BTreeMap<Cow<'a, [u8]>, Cow<'a, [u8]>>),
     Gamma(u32),
 }
 

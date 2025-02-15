@@ -1,5 +1,7 @@
 use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
+use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::io::Read;
 
 use crate::{crc32::compute_crc, Chunk, ColorType, ImageHeader, Png};
@@ -116,6 +118,8 @@ impl<'a> Decoder<'a> {
     fn parse_chunks(&mut self) -> Result<Vec<Chunk>> {
         let mut chunks = Vec::new();
 
+        let mut text_map = BTreeMap::new();
+
         loop {
             let length = self.read_u32()? as usize;
 
@@ -179,7 +183,23 @@ impl<'a> Decoder<'a> {
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),
                 b"IEND" => break,
                 b"gAMA" => Chunk::Gamma(self.read_u32()?),
-                b"sRGB" => todo!("Parse srgb chunks"),
+                // b"sRGB" => todo!("Parse srgb chunks"),
+                b"tEXt" => {
+                    let cursor_start = self.cursor;
+                    let keyword = Cow::from(self.read_slice_until(0)?);
+
+                    let keyword_and_null_bytes = self.cursor - cursor_start;
+                    ensure!(
+                        length >= keyword_and_null_bytes,
+                        "Keyword bytes should not exceed chunk length."
+                    );
+
+                    let text_string = Cow::from(self.read_slice(length - keyword_and_null_bytes)?);
+
+                    text_map.insert(keyword, text_string);
+                    self.skip_crc()?;
+                    continue;
+                }
                 _foreign => {
                     // todo! how would ancillary chunks be parsed?
                     self.cursor += length;
@@ -191,6 +211,10 @@ impl<'a> Decoder<'a> {
             self.skip_crc()?;
 
             chunks.push(chunk);
+        }
+
+        if !text_map.is_empty() {
+            chunks.push(Chunk::TextData(text_map));
         }
 
         Ok(chunks)
@@ -244,6 +268,14 @@ impl<'a> Decoder<'a> {
         self.cursor += len;
 
         Ok(slice)
+    }
+
+    fn read_slice_until(&mut self, stop: u8) -> Result<&'a [u8]> {
+        let cursor_start = self.cursor;
+
+        while self.read_u8()? != stop {}
+
+        Ok(&self.data[cursor_start..self.cursor - 1])
     }
 }
 
