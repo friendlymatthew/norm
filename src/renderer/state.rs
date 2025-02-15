@@ -56,7 +56,7 @@ struct State<'a> {
     queue: Queue,
     config: SurfaceConfiguration,
     size: PhysicalSize<u32>,
-    render_pipeline: RenderPipeline,
+    image_render_pipeline: RenderPipeline,
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     num_indices: u32,
@@ -207,28 +207,29 @@ impl<'a> State<'a> {
             label: Some("feature_bind_group"),
         });
 
-        let shader = device.create_shader_module(ShaderModuleDescriptor {
+        let image_shader = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Shader"),
-            source: ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+            source: ShaderSource::Wgsl(include_str!("image_shader.wgsl").into()),
         });
 
-        let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&texture_bind_group_layout, &feature_bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let image_render_pipeline_layout =
+            device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[&texture_bind_group_layout, &feature_bind_group_layout],
+                push_constant_ranges: &[],
+            });
 
-        let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
+        let image_render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: Some("Image Render Pipeline"),
+            layout: Some(&image_render_pipeline_layout),
             vertex: VertexState {
-                module: &shader,
+                module: &image_shader,
                 entry_point: "vs_main",
                 buffers: &[Vertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
-                module: &shader,
+                module: &image_shader,
                 entry_point: "fs_main",
                 targets: &[Some(ColorTargetState {
                     format: config.format,
@@ -284,7 +285,7 @@ impl<'a> State<'a> {
             queue,
             config,
             size,
-            render_pipeline,
+            image_render_pipeline,
             vertex_buffer,
             index_buffer,
             num_indices,
@@ -436,7 +437,7 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_pipeline(&self.image_render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.feature_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
