@@ -1,5 +1,6 @@
 use crate::renderer::feature_uniform::FeatureUniform;
 use crate::renderer::image_buffer::ImageBuffer;
+use crate::renderer::quad_uniform::QuadUniform;
 use crate::renderer::rectangle_buffer::RectangleBuffer;
 use crate::renderer::Vertex;
 use crate::{
@@ -46,6 +47,10 @@ struct State<'a> {
     feature_uniform: FeatureUniform,
     feature_buffer: Buffer,
     feature_bind_group: BindGroup,
+
+    quad_uniform: QuadUniform,
+    quad_uniform_buffer: Buffer,
+    quad_uniform_bind_group: BindGroup,
 }
 
 impl<'a> State<'a> {
@@ -153,6 +158,37 @@ impl<'a> State<'a> {
             label: Some("diffuse_bind_group"),
         });
 
+        let quad_uniform = QuadUniform::new();
+        let quad_uniform_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Quad Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[quad_uniform]),
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        });
+
+        let quad_uniform_bind_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("quad_uniform_bind_group_layout"),
+            });
+
+        let quad_uniform_bind_group = device.create_bind_group(&BindGroupDescriptor {
+            layout: &quad_uniform_bind_layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: quad_uniform_buffer.as_entire_binding(),
+            }],
+            label: Some("quad_uniform_bind_group"),
+        });
+
         let feature_uniform = FeatureUniform::new(config.width, config.height, png.gamma);
 
         let feature_buffer = device.create_buffer_init(&BufferInitDescriptor {
@@ -193,7 +229,7 @@ impl<'a> State<'a> {
         let quad_render_pipeline_layout =
             device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 label: Some("Quad Render Pipeline Layout"),
-                bind_group_layouts: &[],
+                bind_group_layouts: &[&quad_uniform_bind_layout],
                 push_constant_ranges: &[],
             });
 
@@ -320,6 +356,10 @@ impl<'a> State<'a> {
             feature_bind_group,
             image_buffer,
             rectangle_buffer,
+
+            quad_uniform,
+            quad_uniform_buffer,
+            quad_uniform_bind_group,
         })
     }
 
@@ -338,6 +378,7 @@ impl<'a> State<'a> {
 
     fn input(&mut self, event: &WindowEvent) -> bool {
         let feature_uniform = &mut self.feature_uniform;
+        let quad_uniform = &mut self.quad_uniform;
 
         match event {
             WindowEvent::CursorMoved { position, .. } => {
@@ -352,6 +393,8 @@ impl<'a> State<'a> {
 
                 let is_inside_quad =
                     { -0.5 <= tex_x && tex_x <= 0.5 && -0.5 <= tex_y && tex_y <= 0.5 };
+
+                self.quad_uniform.set_over_quad(is_inside_quad);
 
                 true
             }
@@ -422,6 +465,12 @@ impl<'a> State<'a> {
             0,
             bytemuck::cast_slice(&[self.feature_uniform]),
         );
+
+        self.queue.write_buffer(
+            &self.quad_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.quad_uniform]),
+        );
     }
 
     fn render(&self) -> Result<(), SurfaceError> {
@@ -469,6 +518,7 @@ impl<'a> State<'a> {
             render_pass.draw_indexed(0..self.image_buffer.num_indices(), 0, 0..1);
 
             render_pass.set_pipeline(&self.quad_render_pipeline);
+            render_pass.set_bind_group(0, &self.quad_uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.rectangle_buffer.vertex_buffer().slice(..));
             render_pass.set_index_buffer(
                 self.rectangle_buffer.index_buffer().slice(..),
@@ -500,8 +550,10 @@ pub async fn run(png: Png) -> anyhow::Result<()> {
 
     let (width, height) = png.dimensions();
 
+    let width = width as f32 / 0.8;
+
     let window = WindowBuilder::new()
-        .with_inner_size(PhysicalSize::new(width, height))
+        .with_inner_size(PhysicalSize::new(width, height as f32))
         .with_title("friendlymatthew/png")
         .build(&event_loop)?;
 

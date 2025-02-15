@@ -5,6 +5,7 @@ pub(crate) use vertex::*;
 
 mod feature_uniform;
 mod image_buffer;
+mod quad_uniform;
 mod rectangle_buffer;
 mod state;
 mod texture;

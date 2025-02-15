@@ -1,3 +1,11 @@
+struct QuadUniform {
+    over_edge: u32,
+};
+
+
+@group(0) @binding(0)
+var<uniform> quad_uniform: QuadUniform;
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) color: vec3<f32>,
@@ -20,5 +28,9 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    if quad_uniform.over_edge == 1u {
+        return vec4<f32>(0.5);
+    }
+
     return vec4<f32>(in.color, 0.5);
 }

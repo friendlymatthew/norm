@@ -19,11 +19,11 @@ impl ImageBuffer {
             tex_coords: [0.0, 0.0],
         },
         TextureVertex {
-            position: [1.0, -1.0, 0.0],
+            position: [0.6, -1.0, 0.0],
             tex_coords: [1.0, 1.0],
         },
         TextureVertex {
-            position: [1.0, 1.0, 0.0],
+            position: [0.6, 1.0, 0.0],
             tex_coords: [1.0, 0.0],
         },
     ];

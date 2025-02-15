@@ -8,22 +8,24 @@ pub(crate) struct RectangleBuffer {
 }
 
 impl RectangleBuffer {
+    const WHITE: [f32; 3] = [0.0, 0.0, 0.0];
+
     const VERTICES: [Vertex; 4] = [
         Vertex {
-            position: [-0.5, -0.5, 0.0],
-            color: [1.0, 0.0, 0.0],
+            position: [0.6, -1.0, 0.0],
+            color: Self::WHITE,
         },
         Vertex {
-            position: [0.5, -0.5, 0.0],
-            color: [0.0, 1.0, 0.0],
+            position: [1.0, -1.0, 0.0],
+            color: Self::WHITE,
         },
         Vertex {
-            position: [0.5, 0.5, 0.0],
-            color: [0.0, 0.0, 1.0],
+            position: [1.0, 1.0, 0.0],
+            color: Self::WHITE,
         },
         Vertex {
-            position: [-0.5, 0.5, 0.0],
-            color: [1.0, 1.0, 0.0],
+            position: [0.6, 1.0, 0.0],
+            color: Self::WHITE,
         },
     ];
 
