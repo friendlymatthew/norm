@@ -12,6 +12,8 @@ pub struct FeatureUniform {
     sharpen: u32,
     sharpen_factor: u32,
     edge_detect: u32,
+    _padding: [u8; 8],
+    transform: TransformMatrix,
 }
 
 impl FeatureUniform {
@@ -28,6 +30,8 @@ impl FeatureUniform {
             sharpen: 0,
             sharpen_factor: Self::DEFAULT_SHARPEN_FACTOR,
             edge_detect: 0,
+            _padding: [0u8; 8],
+            transform: Self::TRANSFORM_IDENTITY,
         }
     }
 
@@ -38,6 +42,7 @@ impl FeatureUniform {
         self.blur = 0;
         self.sharpen = 0;
         self.edge_detect = 0;
+        self.transform = Self::TRANSFORM_IDENTITY;
     }
 }
 
@@ -118,5 +123,57 @@ impl FeatureUniform {
 
     pub(crate) fn toggle_edge_detect(&mut self) {
         self.edge_detect = !self.edge_detect() as u32;
+    }
+}
+
+type TransformMatrix = [[f32; 4]; 4];
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TransformAction {
+    FlipX,
+    FlipY,
+}
+
+impl TransformAction {
+    const fn matrix(self) -> TransformMatrix {
+        match self {
+            Self::FlipX => FeatureUniform::TRANSFORM_FLIP_X,
+            Self::FlipY => FeatureUniform::TRANSFORM_FLIP_Y,
+        }
+    }
+}
+
+impl FeatureUniform {
+    const TRANSFORM_IDENTITY: TransformMatrix = [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ];
+    const TRANSFORM_FLIP_X: TransformMatrix = [
+        [-1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ];
+    const TRANSFORM_FLIP_Y: TransformMatrix = [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, -1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ];
+
+    pub(crate) fn apply_transform(&mut self, action: TransformAction) {
+        let transform_mat = action.matrix();
+
+        for (r, row) in transform_mat.iter().enumerate() {
+            for (c, ch) in row.iter().enumerate() {
+                if r == 3 || c == 3 {
+                    continue;
+                }
+
+                self.transform[r][c] *= ch;
+            }
+        }
     }
 }

@@ -1,4 +1,4 @@
-use crate::renderer::feature_uniform::FeatureUniform;
+use crate::renderer::feature_uniform::{FeatureUniform, TransformAction};
 use crate::{
     renderer::{Texture, Vertex},
     Png,
@@ -187,7 +187,7 @@ impl<'a> State<'a> {
             device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 entries: &[BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -377,6 +377,16 @@ impl<'a> State<'a> {
                 }
                 (KeyCode::KeyE, ElementState::Pressed) => {
                     feature_uniform.toggle_edge_detect();
+                    true
+                }
+                (KeyCode::KeyX, ElementState::Pressed) => {
+                    feature_uniform.apply_transform(TransformAction::FlipX);
+
+                    true
+                }
+                (KeyCode::KeyY, ElementState::Pressed) => {
+                    feature_uniform.apply_transform(TransformAction::FlipY);
+
                     true
                 }
                 _ => false,

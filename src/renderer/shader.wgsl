@@ -11,6 +11,7 @@ struct FeatureUniform {
     sharpen: u32,
     sharpen_factor: u32,
     edge_detect: u32,
+    transform: mat4x4<f32>,
 };
 
 
@@ -27,13 +28,25 @@ struct VertexOutput {
     @location(0) tex_coords: vec2<f32>,
 }
 
+fn transform_matrix() -> mat3x3<f32> {
+    return mat3x3<f32>(
+        feature_uniform.transform[0].xyz,
+        feature_uniform.transform[1].xyz,
+        feature_uniform.transform[2].xyz,
+    );
+}
+
 @vertex
 fn vs_main(
     model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
+
+    var transformed = transform_matrix() * vec3<f32>(model.position.x, model.position.y, 1.0);
+
+    out.clip_position = vec4<f32>(transformed.xy, model.position.z, 1.0);
     out.tex_coords = model.tex_coords;
-    out.clip_position = vec4<f32>(model.position, 1.0);
+
     return out;
 }
 
