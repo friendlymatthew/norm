@@ -1,7 +1,8 @@
 use crate::renderer::feature_uniform::{FeatureUniform, TransformAction};
+use crate::renderer::mouse_state::MouseState;
 use crate::{
+    png::grammar::Png,
     renderer::{Texture, Vertex},
-    Png,
 };
 use anyhow::{anyhow, Result};
 use std::iter;
@@ -18,6 +19,7 @@ use wgpu::{
     ShaderSource, ShaderStages, StoreOp, Surface, SurfaceConfiguration, SurfaceError,
     TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexState,
 };
+use winit::window::CursorIcon;
 use winit::{
     dpi::PhysicalSize,
     event::*,
@@ -25,6 +27,9 @@ use winit::{
     keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowBuilder},
 };
+
+use super::draw_uniform::DrawUniform;
+use super::shape::{compute_radius, Shape, ShapeStack};
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -68,6 +73,14 @@ struct State<'a> {
     feature_uniform: FeatureUniform,
     feature_buffer: Buffer,
     feature_bind_group: BindGroup,
+
+    draw_uniform: DrawUniform,
+    draw_buffer: Buffer,
+    draw_bind_group: BindGroup,
+
+    mouse_state: MouseState,
+
+    shape_stack: ShapeStack,
 }
 
 impl<'a> State<'a> {
@@ -178,7 +191,7 @@ impl<'a> State<'a> {
         let feature_uniform = FeatureUniform::new(config.width, config.height, png.gamma);
 
         let feature_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Color Tone Buffer"),
+            label: Some("Feature Buffer"),
             contents: bytemuck::cast_slice(&[feature_uniform]),
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
@@ -207,6 +220,37 @@ impl<'a> State<'a> {
             label: Some("feature_bind_group"),
         });
 
+        let draw_uniform = DrawUniform::new();
+
+        let draw_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Draw Buffer"),
+            contents: bytemuck::cast_slice(&[draw_uniform]),
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        });
+
+        let draw_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX_FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+            label: Some("draw_bind_group_layout"),
+        });
+
+        let draw_bind_group = device.create_bind_group(&BindGroupDescriptor {
+            layout: &draw_bind_group_layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: draw_buffer.as_entire_binding(),
+            }],
+            label: Some("draw_bind_group"),
+        });
+
         let image_shader = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Shader"),
             source: ShaderSource::Wgsl(include_str!("image_shader.wgsl").into()),
@@ -215,7 +259,11 @@ impl<'a> State<'a> {
         let image_render_pipeline_layout =
             device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &feature_bind_group_layout],
+                bind_group_layouts: &[
+                    &texture_bind_group_layout,
+                    &feature_bind_group_layout,
+                    &draw_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
@@ -279,6 +327,9 @@ impl<'a> State<'a> {
         });
         let num_indices = INDICES.len() as u32;
 
+        let mouse_state = MouseState::default();
+        let shape_stack = ShapeStack::new();
+
         Ok(Self {
             surface,
             device,
@@ -295,6 +346,11 @@ impl<'a> State<'a> {
             feature_uniform,
             feature_buffer,
             feature_bind_group,
+            draw_uniform,
+            draw_buffer,
+            draw_bind_group,
+            mouse_state,
+            shape_stack,
         })
     }
 
@@ -318,13 +374,67 @@ impl<'a> State<'a> {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            self.feature_uniform
+                .update_window_dimensions(self.config.width, self.config.height);
         }
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
         let feature_uniform = &mut self.feature_uniform;
+        let draw_uniform = &mut self.draw_uniform;
 
         match event {
+            WindowEvent::MouseInput { state, button, .. } => {
+                if *button == MouseButton::Left {
+                    let prev_state = self.mouse_state.pressed();
+
+                    self.mouse_state
+                        .set_pressed(matches!(state, ElementState::Pressed));
+
+                    if !draw_uniform.crosshair() {
+                        return true;
+                    }
+
+                    match (prev_state, self.mouse_state.pressed()) {
+                        (false, true) => {
+                            let (start_x, start_y) = self.mouse_state.position();
+
+                            dbg!("start drag", start_x, start_y);
+                            self.mouse_state.set_start_drag(Some((start_x, start_y)));
+                            draw_uniform.set_circle_center(start_x, start_y);
+                        }
+                        (true, false) => {
+                            let initial_drag_position = self.mouse_state.start_drag();
+
+                            if initial_drag_position.is_none() {
+                                panic!("Logic error occured. Mouse state once finished pressing doesn't have initial drag position set.");
+                            }
+
+                            let (x, y) = initial_drag_position.unwrap();
+                            let (edge_x, edge_y) = self.mouse_state.position();
+                            let radius = compute_radius((x, y), (edge_x, edge_y));
+                            self.shape_stack.push(Shape::Circle { x, y, radius });
+
+                            // clear state
+                            self.mouse_state.set_start_drag(None);
+                            dbg!("stop drag");
+                            draw_uniform.set_circle_radius(0.0);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                let (x, y) = (position.x as f32, position.y as f32);
+
+                if let Some(center) = self.mouse_state.start_drag() {
+                    let radius = compute_radius(center, (x, y));
+                    dbg!("dragging: radius", radius);
+                    self.draw_uniform.set_circle_radius(radius);
+                }
+
+                self.mouse_state.update_position(x, y);
+            }
             WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {
@@ -334,13 +444,20 @@ impl<'a> State<'a> {
                     },
                 ..
             } => match (keycode, state) {
+                (KeyCode::KeyA, ElementState::Pressed) => {
+                    draw_uniform.toggle_crosshair();
+
+                    if draw_uniform.crosshair() {
+                        self.window.set_cursor_icon(CursorIcon::Crosshair);
+                    } else {
+                        self.window.set_cursor_icon(CursorIcon::Default);
+                    }
+                }
                 (KeyCode::KeyC, ElementState::Pressed) => {
                     feature_uniform.reset_features();
-                    true
                 }
                 (KeyCode::KeyB, ElementState::Pressed) => {
                     feature_uniform.toggle_blur();
-                    true
                 }
                 (KeyCode::ArrowUp, ElementState::Pressed) => {
                     if feature_uniform.blur() {
@@ -350,8 +467,6 @@ impl<'a> State<'a> {
                     if feature_uniform.sharpen() {
                         feature_uniform.increase_sharpen_factor();
                     }
-
-                    true
                 }
                 (KeyCode::ArrowDown, ElementState::Pressed) => {
                     if feature_uniform.blur() {
@@ -361,39 +476,31 @@ impl<'a> State<'a> {
                     if feature_uniform.sharpen() {
                         feature_uniform.decrease_sharpen_factor();
                     }
-
-                    true
                 }
                 (KeyCode::KeyG, ElementState::Pressed) => {
                     feature_uniform.toggle_grayscale();
-                    true
                 }
                 (KeyCode::KeyS, ElementState::Pressed) => {
                     feature_uniform.toggle_sharpen();
-                    true
                 }
                 (KeyCode::KeyI, ElementState::Pressed) => {
                     feature_uniform.toggle_invert();
-                    true
                 }
                 (KeyCode::KeyE, ElementState::Pressed) => {
                     feature_uniform.toggle_edge_detect();
-                    true
                 }
                 (KeyCode::KeyX, ElementState::Pressed) => {
                     feature_uniform.apply_transform(TransformAction::FlipX);
-
-                    true
                 }
                 (KeyCode::KeyY, ElementState::Pressed) => {
                     feature_uniform.apply_transform(TransformAction::FlipY);
-
-                    true
                 }
-                _ => false,
+                _ => return false,
             },
-            _ => false,
+            _ => return false,
         }
+
+        true
     }
 
     fn update(&self) {
@@ -401,6 +508,12 @@ impl<'a> State<'a> {
             &self.feature_buffer,
             0,
             bytemuck::cast_slice(&[self.feature_uniform]),
+        );
+
+        self.queue.write_buffer(
+            &self.draw_buffer,
+            0,
+            bytemuck::cast_slice(&[self.draw_uniform]),
         );
     }
 
@@ -440,8 +553,29 @@ impl<'a> State<'a> {
             render_pass.set_pipeline(&self.image_render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.feature_bind_group, &[]);
+            render_pass.set_bind_group(2, &self.draw_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
+
+            self.shape_stack.shapes().iter().for_each(|shape| {
+                let &Shape::Circle { x, y, radius } = shape;
+
+                let shape_uniform = DrawUniform {
+                    crosshair: self.draw_uniform.crosshair,
+                    circle_center_x: x,
+                    circle_center_y: y,
+                    circle_radius: radius,
+                };
+
+                self.queue.write_buffer(
+                    &self.draw_buffer,
+                    0,
+                    bytemuck::cast_slice(&[shape_uniform]),
+                );
+
+                render_pass.set_bind_group(2, &self.draw_bind_group, &[]);
+            });
+
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 
@@ -470,7 +604,7 @@ pub async fn run(png: Png) -> anyhow::Result<()> {
 
     let window = WindowBuilder::new()
         .with_inner_size(PhysicalSize::new(width, height))
-        .with_title("friendlymatthew/png")
+        .with_title("iris")
         .build(&event_loop)?;
 
     #[cfg(target_arch = "wasm32")]

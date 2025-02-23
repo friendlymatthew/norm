@@ -4,21 +4,29 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::io::Read;
 
-use crate::{crc32::compute_crc, Chunk, ColorType, ImageHeader, Png};
+use crate::{
+    eof,
+    png::{
+        crc32::compute_crc,
+        grammar::{Chunk, ColorType, ImageHeader, Png},
+    },
+    read,
+    util::read_bytes::{U32_BYTES, U8_BYTES},
+};
 
-use crate::scanline_reader::ScanlineReader;
+use crate::png::scanline_reader::ScanlineReader;
 #[cfg(feature = "time")]
 use crate::util::{log_event, Event};
 #[cfg(feature = "time")]
 use std::time::Instant;
 
 #[derive(Debug)]
-pub struct Decoder<'a> {
+pub struct PngDecoder<'a> {
     cursor: usize,
     data: &'a [u8],
 }
 
-impl<'a> Decoder<'a> {
+impl<'a> PngDecoder<'a> {
     pub const fn new(data: &'a [u8]) -> Self {
         Self { cursor: 0, data }
     }
@@ -227,39 +235,9 @@ impl<'a> Decoder<'a> {
         Ok(())
     }
 
-    fn eof(&self, len: usize) -> Result<()> {
-        let end = self.data.len();
-
-        ensure!(
-            self.cursor + len.saturating_sub(1) < self.data.len(),
-            "Unexpected EOF. At {}, seek by {}, buffer size: {}.",
-            self.cursor,
-            len,
-            end
-        );
-
-        Ok(())
-    }
-
-    fn read_u8(&mut self) -> Result<u8> {
-        self.eof(0)?;
-
-        let b = self.data[self.cursor];
-        self.cursor += 1;
-
-        Ok(b)
-    }
-
-    fn read_u32(&mut self) -> Result<u32> {
-        self.eof(4)?;
-
-        let slice = &self.data[self.cursor..self.cursor + 4];
-        let n = u32::from_be_bytes([slice[0], slice[1], slice[2], slice[3]]);
-
-        self.cursor += 4;
-
-        Ok(n)
-    }
+    eof!();
+    read!(read_u8, u8, U8_BYTES);
+    read!(read_u32, u32, U32_BYTES);
 
     fn read_slice(&mut self, len: usize) -> Result<&'a [u8]> {
         self.eof(len)?;
@@ -282,7 +260,7 @@ impl<'a> Decoder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_file_parser::parse_test_file;
+    use crate::util::test_file_parser::parse_test_file;
     use anyhow::anyhow;
     use image::ImageReader;
     use pretty_assertions::assert_eq;
@@ -290,7 +268,7 @@ mod tests {
     #[allow(dead_code)]
     fn generate_blob(path: &str) -> Result<()> {
         let content = std::fs::read(format!("{}.png", path))?;
-        let png = Decoder::new(&content).decode()?;
+        let png = PngDecoder::new(&content).decode()?;
 
         png.write_to_binary_blob(path)?;
 
@@ -306,7 +284,7 @@ mod tests {
         let reference_rgbs = ImageReader::open(&path)?.decode()?.to_rgb8().to_vec();
 
         let content = std::fs::read(&path)?;
-        let generated_png = Decoder::new(&content).decode()?;
+        let generated_png = PngDecoder::new(&content).decode()?;
         let generated_rgbs = generated_png.to_rgb8().to_vec();
 
         assert_eq!(
@@ -328,7 +306,7 @@ mod tests {
         Ok(())
     }
 
-    // A note about the following test cases, these images were hand checked. This way, binary blobs can be generated with confidence (or hubris).
+    // A note about the following test cases, these images were hand checked. This way, binary blobs can be generated with confidence, not hubris.
 
     #[test]
     fn test_basic_grayscale_8bit() -> Result<()> {

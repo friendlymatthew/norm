@@ -14,9 +14,20 @@ struct FeatureUniform {
     transform: mat4x4<f32>,
 };
 
+struct DrawUniform {
+    crosshair: u32,
+    circle_center_x: f32,
+    circle_center_y: f32,
+    circle_radius: f32,
+}
+
 
 @group(1) @binding(0)
 var<uniform> feature_uniform: FeatureUniform;
+
+
+@group(2) @binding(0)
+var<uniform> draw_uniform: DrawUniform;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -177,6 +188,17 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             1.0 - pixels.b,
             pixels.a
         );
+    }
+
+    if draw_uniform.crosshair == 1u {
+        var pixel_coords = in.tex_coords * vec2(f32(feature_uniform.width), f32(feature_uniform.height));
+        var mouse_pixel = vec2(draw_uniform.circle_center_x, draw_uniform.circle_center_y);
+
+        if distance(pixel_coords, mouse_pixel) < draw_uniform.circle_radius {
+            pixels.r = 0.0;
+            pixels.g = 1.0;
+            pixels.b = 1.0;
+        }
     }
 
     return pixels;

@@ -12,7 +12,7 @@ pub struct FeatureUniform {
     sharpen: u32,
     sharpen_factor: u32,
     edge_detect: u32,
-    _padding: [u8; 8],
+    _padding_1: [u8; 8],
     transform: TransformMatrix,
 }
 
@@ -30,7 +30,7 @@ impl FeatureUniform {
             sharpen: 0,
             sharpen_factor: Self::DEFAULT_SHARPEN_FACTOR,
             edge_detect: 0,
-            _padding: [0u8; 8],
+            _padding_1: [0u8; 8],
             transform: Self::TRANSFORM_IDENTITY,
         }
     }
@@ -113,6 +113,13 @@ impl FeatureUniform {
 
     pub(crate) fn decrease_sharpen_factor(&mut self) {
         self.sharpen_factor = (self.sharpen_factor - 1).max(Self::MIN_SHARPEN_FACTOR);
+    }
+}
+
+impl FeatureUniform {
+    pub(crate) fn update_window_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
     }
 }
 

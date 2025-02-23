@@ -1,9 +1,9 @@
 use afl::fuzz;
-use png::Decoder;
+use iris::png::PngDecoder;
 
 fn main() {
     fuzz!(|data: &[u8]| {
-        let mut decoder = Decoder::new(data);
+        let mut decoder = PngDecoder::new(data);
         let _ = decoder.decode();
     });
 }
