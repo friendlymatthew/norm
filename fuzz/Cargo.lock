@@ -570,7 +570,7 @@ name = "fuzz"
 version = "0.1.0"
 dependencies = [
  "afl",
- "her",
+ "iris",
 ]
 
 [[package]]
@@ -703,28 +703,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "her"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "cfg-if",
- "comfy-table",
- "console_error_panic_hook",
- "console_log",
- "crc32fast",
- "env_logger",
- "flate2",
- "log",
- "pollster",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -770,6 +748,28 @@ checksum = "8c9c992b02b5b4c94ea26e32fe5bccb7aa7d9f390ab5c1221ff895bc7ea8b652"
 dependencies = [
  "equivalent",
  "hashbrown",
+]
+
+[[package]]
+name = "iris"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "cfg-if",
+ "comfy-table",
+ "console_error_panic_hook",
+ "console_log",
+ "crc32fast",
+ "env_logger",
+ "flate2",
+ "log",
+ "pollster",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]

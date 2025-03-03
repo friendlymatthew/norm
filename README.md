@@ -9,7 +9,8 @@
 
 A PNG editor from scratch (well, as close to scratch as possible).
 
-As a decoder, this project uses the [PNG test suite](http://www.schaik.com/pngsuite/) to validate its ability to handle various PNG features and edge cases. Currently, png can decode and render images with an 8-bit color depth.
+As a decoder, this project uses the [PNG test suite](http://www.schaik.com/pngsuite/) to validate its ability to handle
+various PNG features and edge cases. Currently, png can decode and render images with an 8-bit color depth.
 
 The renderer supports various image processing features on the GPU.
 
@@ -31,7 +32,11 @@ cargo r --release ./tests/obama.png
 cargo r --release --bin decode --features time ./tests/Periodic_table_large.png
 
 # Run the PNG test suite
-cargo r --bin png-test-suite
+cargo r --bin iris-png-test-suite
+
+# Parse and render glyphs from the lato font file
+# See the generated `glyph_playground` directory.
+cargo r --bin iris-lato-glyphs
 
 # Fuzz the decoder
 ./fuzz.sh

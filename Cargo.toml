@@ -28,6 +28,10 @@ name = "iris-decode"
 path = "src/bin/decode.rs"
 
 [[bin]]
+name = "iris-lato-glyphs"
+path = "src/bin/lato_glyphs.rs"
+
+[[bin]]
 name = "iris-ssim"
 path = "src/bin/ssim.rs"
 
