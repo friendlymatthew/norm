@@ -1,9 +1,9 @@
 # iris
 
 <p align="center">
-    <img src="tests/diaz.png" alt="Nick Diaz" width="220"/>
-    <img src="tests/diaz_blur.png" alt="Blur Nick Diaz" width="220"/>
-    <img src="tests/diaz_sharpen.png" alt="Sharpen Diaz" width="220"/>
+    <img src="tests/vangogh-gaussian-blur.png" alt="Blur Nick Diaz" width="220"/>
+    <img src="tests/vangogh-normal.png" alt="Van Gogh Normal" width="220"/>
+    <img src="tests/vangogh-sharpen.png" alt="Sharpen Diaz" width="220"/>
 </p>
 <br>
 
