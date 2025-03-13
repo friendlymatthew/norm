@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
 use iris::png::PngDecoder;
-use iris::util::event_log::{log_event, Event};
 
+#[cfg(feature = "time")]
+use iris::util::event_log::{log_event, Event};
 #[cfg(feature = "time")]
 use std::time::Instant;
 
@@ -18,6 +19,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "time")]
     let a = Instant::now();
     let _ = decoder.decode()?;
+
     #[cfg(feature = "time")]
     log_event("", Event::TotalElapsed, Some(a.elapsed()));
 
