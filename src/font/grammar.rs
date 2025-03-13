@@ -19,7 +19,7 @@ pub struct TrueTypeFontFile<'a> {
     pub maxp_table: MaxPTable,
     pub loca_table: Vec<u32>,
     pub hmtx_table: HMtxTable,
-    pub cmap_table: BTreeMap<CMapSubtable, Vec<PlatformDouble>>,
+    pub cmap_table: CMapTable,
     pub glyph_table: GlyphTable,
 }
 
@@ -143,6 +143,20 @@ pub struct TableRecord {
     pub length: u32,
 }
 
+#[derive(Debug)]
+pub struct CMapTable {
+    pub subtables: BTreeMap<CMapSubtable, Vec<PlatformDouble>>,
+}
+
+impl CMapTable {
+    pub fn format_4(&self) -> Option<&CMapFormat4> {
+        self.subtables.iter().find_map(|(cmap, _)| match cmap {
+            CMapSubtable::Four(cmap_4) => Some(cmap_4),
+            _ => None,
+        })
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CMapSubtable {
     Zero(CMapFormat0),
@@ -189,6 +203,33 @@ pub struct CMapFormat4 {
     pub id_deltas: Vec<u16>,
     pub id_range_offset: Vec<u16>,
     pub glyph_index_array: Vec<u16>,
+}
+
+impl CMapFormat4 {
+    pub fn find_glyph_index(&self, ch: char) -> usize {
+        let char_code = ch as u16; // we can guarantee all characters are in BMP.
+
+        // 1. Search for the first `end_code` greater than or equal to the character code to be mapped.
+        let i = self
+            .end_codes
+            .binary_search(&char_code)
+            .unwrap_or_else(|i| i);
+
+        let start_code = self.start_codes[i];
+
+        if start_code > char_code {
+            // return missing character glyph.
+            return 0;
+        }
+
+        let id_range_offset = self.id_range_offset[i];
+
+        if id_range_offset == 0 {
+            return ((self.id_deltas[i] as u32 + char_code as u32) & 0xFFFF) as usize;
+        }
+
+        (id_range_offset + id_range_offset / 2 + (char_code - start_code)) as usize
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -393,7 +434,7 @@ pub struct GlyphTable {
     pub glyphs: Vec<Glyph>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Glyph {
     pub description: GlyphDescription,
     pub data: GlyphData,
@@ -439,7 +480,7 @@ impl Glyph {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GlyphDescription {
     pub number_of_contours: i16,
     pub x_min: FWord,
@@ -462,13 +503,13 @@ impl GlyphDescription {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GlyphData {
     Simple(SimpleGlyph),
     Compound(CompoundGlyph),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SimpleGlyph {
     pub end_points_of_contours: Vec<u16>,
     pub instruction_length: u16,
@@ -506,12 +547,12 @@ impl SimpleGlyphFlag {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompoundGlyph {
     pub components: Vec<ComponentGlyph>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComponentGlyph {
     pub flag: ComponentGlyphFlag,
     pub glyph_index: u16,
@@ -520,7 +561,7 @@ pub struct ComponentGlyph {
     pub transformation: ComponentGlyphTransformation,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ComponentGlyphArgument {
     Point(u16),
     Coord(i16),
@@ -571,7 +612,7 @@ impl ComponentGlyphFlag {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ComponentGlyphTransformation {
     Uniform(F2Dot14),
     NonUniform {

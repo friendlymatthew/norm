@@ -1,4 +1,5 @@
 use anyhow::Result;
+use iris::font::shaper::TrueTypeFontShaper;
 use iris::font::TrueTypeFontParser;
 use std::fs;
 use std::fs::File;
@@ -37,13 +38,20 @@ fn index_html() -> String {
 }
 
 fn main() -> Result<()> {
+    let args = std::env::args().skip(1);
+
+    let phrase = args.collect::<Vec<String>>().join(" ");
+
     let ttf_file = fs::read("./src/font/lato-regular.ttf")?;
     let ttf = TrueTypeFontParser::new(&ttf_file).parse()?;
+    let shaper = TrueTypeFontShaper::from(&ttf);
+
+    let glyphs = shaper.shape(&phrase);
 
     let mut render_js_code = String::new();
     render_js_code += "const contentDiv = document.getElementById(\"content\")\n";
 
-    for (i, glyph) in ttf.glyph_table.glyphs.iter().enumerate() {
+    for (i, glyph) in glyphs.into_iter().enumerate() {
         if !glyph.is_simple() {
             continue;
         }

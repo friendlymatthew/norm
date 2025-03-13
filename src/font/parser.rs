@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
 use super::grammar::{
-    CMapFormat0, CMapFormat12, CMapFormat4, CMapIndividualGroup, CMapSubtable, ComponentGlyph,
-    ComponentGlyphArgument, ComponentGlyphFlag, ComponentGlyphTransformation, CompoundGlyph,
-    F2Dot14, FWord, Fixed, FontDirectory, Glyph, GlyphData, GlyphDescription, GlyphTable,
-    HHeaTable, HMtxTable, HeadTable, LongDateTime, LongHorizontalMetric, MaxPTable, OffsetSubTable,
-    ScalarType, SimpleGlyph, SimpleGlyphFlag, TableRecord, TableTag, TrueTypeFontFile,
-    UnsignedFWord,
+    CMapFormat0, CMapFormat12, CMapFormat4, CMapIndividualGroup, CMapSubtable, CMapTable,
+    ComponentGlyph, ComponentGlyphArgument, ComponentGlyphFlag, ComponentGlyphTransformation,
+    CompoundGlyph, F2Dot14, FWord, Fixed, FontDirectory, Glyph, GlyphData, GlyphDescription,
+    GlyphTable, HHeaTable, HMtxTable, HeadTable, LongDateTime, LongHorizontalMetric, MaxPTable,
+    OffsetSubTable, ScalarType, SimpleGlyph, SimpleGlyphFlag, TableRecord, TableTag,
+    TrueTypeFontFile, UnsignedFWord,
 };
 
 use crate::font::grammar::{IndexToLocFormat, Platform, PlatformDouble};
@@ -272,7 +272,7 @@ impl<'a> TrueTypeFontParser<'a> {
         })
     }
 
-    fn parse_cmap_table(&mut self) -> Result<BTreeMap<CMapSubtable, Vec<PlatformDouble>>> {
+    fn parse_cmap_table(&mut self) -> Result<CMapTable> {
         let cmap_offset = self.cursor;
         let version = self.read_u16()?;
         ensure!(
@@ -283,7 +283,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
         let number_of_subtables = self.read_u16()?;
 
-        let subtable_map = {
+        let subtables = {
             let mut unique_offsets = BTreeMap::new();
             for _ in 0..number_of_subtables {
                 let platform_double = PlatformDouble {
@@ -315,7 +315,7 @@ impl<'a> TrueTypeFontParser<'a> {
             subtable_map
         };
 
-        Ok(subtable_map)
+        Ok(CMapTable { subtables })
     }
 
     // A note about the CMap table formats:
@@ -430,7 +430,7 @@ impl<'a> TrueTypeFontParser<'a> {
         let glyph_table_offset = self.cursor;
 
         let num_glyphs = loca_table.len() - 1;
-        let mut glyphs = Vec::new();
+        let mut glyphs: Vec<Glyph> = Vec::new();
 
         for i in 0..num_glyphs {
             let glyph_relative_offset = loca_table[i] as usize;
@@ -438,6 +438,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
             // https://github.com/khaledhosny/ots/issues/120
             if glyph_length == 0 {
+                glyphs.push(glyphs[0].clone());
                 continue;
             }
 
@@ -446,6 +447,7 @@ impl<'a> TrueTypeFontParser<'a> {
             let description = self.parse_glyph_description()?;
 
             if description.number_of_contours == 0 {
+                glyphs.push(glyphs[0].clone());
                 continue;
             }
 
@@ -457,6 +459,8 @@ impl<'a> TrueTypeFontParser<'a> {
 
             glyphs.push(Glyph { description, data });
         }
+
+        assert_eq!(glyphs.len(), num_glyphs);
 
         Ok(GlyphTable { glyphs })
     }

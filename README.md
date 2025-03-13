@@ -1,9 +1,9 @@
 # iris
 
 <p align="center">
-    <img src="tests/vangogh-gaussian-blur.png" alt="Blur Nick Diaz" width="220"/>
+    <img src="tests/vangogh-gaussian-blur.png" alt="Van Gogh Blur" width="220"/>
     <img src="tests/vangogh-normal.png" alt="Van Gogh Normal" width="220"/>
-    <img src="tests/vangogh-sharpen.png" alt="Sharpen Diaz" width="220"/>
+    <img src="tests/vangogh-sharpen.png" alt="Van Gogh Sharpen" width="220"/>
 </p>
 <br>
 
@@ -25,18 +25,19 @@ cargo r --release ./tests/obama.png
 ### Additional Scripts
 
 ```bash
+
 # Profile the decoder
 ./profile_decoder.sh ./tests/reagan.png
 
 # Run ad-hoc benchmarks
 cargo r --release --bin decode --features time ./tests/Periodic_table_large.png
 
-# Run the PNG test suite
-cargo r --bin iris-png-test-suite
-
 # Parse and render glyphs from the lato font file
 # See the generated `glyph_playground` directory.
-cargo r --bin iris-lato-glyphs
+cargo r --bin iris-lato-glyphs Good Lord
+
+# Run the PNG test suite
+cargo r --bin iris-png-test-suite
 
 # Fuzz the decoder
 ./fuzz.sh
