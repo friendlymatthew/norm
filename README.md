@@ -30,7 +30,7 @@ cargo r --release ./tests/obama.png
 ./profile_decoder.sh ./tests/reagan.png
 
 # Run ad-hoc benchmarks
-cargo r --release --bin decode --features time ./tests/Periodic_table_large.png
+cargo r --release --bin iris-decode --features time ./tests/Periodic_table_large.png
 
 # Parse and render glyphs from the lato font file
 # See the generated `glyph_playground` directory.

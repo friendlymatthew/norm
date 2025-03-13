@@ -16,7 +16,7 @@ use crate::{
 
 use crate::png::scanline_reader::ScanlineReader;
 #[cfg(feature = "time")]
-use crate::util::{log_event, Event};
+use crate::util::event_log::{log_event, Event};
 #[cfg(feature = "time")]
 use std::time::Instant;
 
