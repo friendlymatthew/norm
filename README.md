@@ -73,6 +73,7 @@ https://faultlore.com/blah/text-hates-you/<br>
 https://developer.apple.com/fonts/TrueType-Reference-Manual/<br>
 https://www.youtube.com/watch?v=SO83KQuuZvg<br>
 https://www.microsoft.com/en-us/research/wp-content/uploads/2005/01/p1000-loop.pdf<br>
+https://medium.com/@evanwallace/easy-scalable-text-rendering-on-the-gpu-c3f4d782c5ac<br>
 
 ### Miscellaneous
 
