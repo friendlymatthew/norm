@@ -444,40 +444,6 @@ impl Glyph {
     pub const fn is_simple(&self) -> bool {
         matches!(self.data, GlyphData::Simple(_))
     }
-
-    pub fn draw_to_canvas(&self, key: usize) -> String {
-        let GlyphData::Simple(simple_glyph) = &self.data else {
-            todo!("how does compound glyphs look on canvas?");
-        };
-
-        let mut out = String::new();
-        out += &format!("ctx{key}.translate(0, newCanvas{key}.height - 300);\n");
-        out += &format!("ctx{key}.scale(0.5, -0.5);\n");
-
-        out += &format!("ctx{key}.beginPath()\n");
-
-        let mut start_index = 0;
-
-        for end_index in &simple_glyph.end_points_of_contours {
-            let end_index = *end_index as usize;
-
-            let (x_start, y_start) = simple_glyph.coordinates[start_index];
-            out += &format!("ctx{key}.moveTo({}, {});\n", x_start, y_start);
-            for i in start_index + 1..=end_index {
-                let (x, y) = simple_glyph.coordinates[i];
-                out += &format!("ctx{key}.lineTo({}, {});\n", x, y);
-            }
-
-            out += &format!("ctx{key}.closePath();\n");
-
-            start_index = end_index + 1;
-        }
-
-        out += &format!("ctx{key}.lineWidth = 9;\n");
-        out += &format!("ctx{key}.stroke();\n");
-
-        out
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -516,6 +482,21 @@ pub struct SimpleGlyph {
     pub instructions: Vec<u8>,
     pub flags: Vec<SimpleGlyphFlag>,
     pub coordinates: Vec<(i16, i16)>,
+}
+
+impl SimpleGlyph {
+    pub fn on_curve(&self, i: usize) -> bool {
+        self.flags[i].on_curve()
+    }
+
+    pub fn interpolate_with_prev(&self, i: usize) -> Result<(i16, i16)> {
+        ensure!(i > 0);
+
+        let (x, y) = self.coordinates[i - 1];
+        let (next_x, next_y) = self.coordinates[i];
+
+        Ok(((next_x - x) / 2, (next_y - y) / 2))
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
