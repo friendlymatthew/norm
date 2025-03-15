@@ -34,7 +34,7 @@ cargo r --release --bin iris-decode --features time ./tests/Periodic_table_large
 
 # Parse and render glyphs from the lato font file
 # See the generated `glyph_playground` directory.
-cargo r --bin iris-lato-glyphs Good Lord
+cargo r --bin iris-lato-glyphs hfkdp!
 
 # Run the PNG test suite
 cargo r --bin iris-png-test-suite
