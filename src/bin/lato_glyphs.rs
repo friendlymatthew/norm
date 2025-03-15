@@ -45,7 +45,11 @@ fn insert_implicit_points(
             let (curr_x, curr_y) = curr_coord;
             let (next_x, next_y) = next_coord;
 
-            let (dx, dy) = (next_x - curr_x, next_y - curr_y);
+            let (dx, dy) = {
+                let (dx, dy) = (next_x - curr_x, next_y - curr_y);
+                (dx / 2, dy / 2)
+            };
+
             let (mid_x, mid_y) = (curr_x + dx, curr_y + dy);
 
             points.insert(i + 1, ((mid_x, mid_y), !curr_on_curve));
@@ -75,7 +79,7 @@ fn draw_glyph_to_canvas(glyph: &Glyph, key: usize) -> Result<String> {
     for end_index in &simple_glyph.end_points_of_contours {
         let end_index = *end_index as usize;
 
-        let points = insert_implicit_points(&simple_glyph, start_index, end_index);
+        let points = insert_implicit_points(simple_glyph, start_index, end_index);
 
         let mut i = 0;
 
