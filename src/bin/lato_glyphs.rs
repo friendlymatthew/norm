@@ -30,8 +30,6 @@ fn draw_glyph_to_canvas(glyph: &Glyph, key: usize) -> Result<String> {
 
     out += &format!("ctx{key}.beginPath()\n");
 
-    let mut implicit_on_curve_points = vec![];
-
     let mut start_index = 0;
 
     for end_index in &simple_glyph.end_points_of_contours {
@@ -45,7 +43,7 @@ fn draw_glyph_to_canvas(glyph: &Glyph, key: usize) -> Result<String> {
         i += 1;
 
         while i <= end_index {
-            // let (prev_x, prev_y) = simple_glyph.coordinates[i - 1];
+            let (prev_x, prev_y) = simple_glyph.coordinates[i - 1];
             let prev_on_curve = simple_glyph.on_curve(i - 1);
 
             let (curr_x, curr_y) = simple_glyph.coordinates[i];
@@ -53,15 +51,16 @@ fn draw_glyph_to_canvas(glyph: &Glyph, key: usize) -> Result<String> {
 
             match (prev_on_curve, start_on_curve) {
                 (true, true) => {
-                    // // an implicit off-curve point.
-                    // out += &format!(
-                    //     "ctx{key}.quadraticCurveTo({}, {}, {}, {});\n",
-                    //     mid_x, mid_y, curr_x, curr_y,
-                    // );
+                    let (dx, dy) = simple_glyph.interpolate_with_prev(i)?;
 
-                    implicit_on_curve_points.push(simple_glyph.interpolate_with_prev(i)?);
-
-                    out += &format!("ctx{key}.lineTo({}, {});\n", curr_x, curr_y);
+                    // an implicit off-curve point.
+                    out += &format!(
+                        "ctx{key}.quadraticCurveTo({}, {}, {}, {});\n",
+                        prev_x + dx,
+                        prev_y + dy,
+                        curr_x,
+                        curr_y,
+                    );
                 }
                 _ => {
                     out += &format!("ctx{key}.lineTo({}, {});\n", curr_x, curr_y);
