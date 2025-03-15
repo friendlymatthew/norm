@@ -1,5 +1,5 @@
 use anyhow::Result;
-use iris::font::grammar::{Glyph, GlyphData};
+use iris::font::grammar::{Glyph, GlyphData, SimpleGlyph};
 use iris::font::shaper::TrueTypeFontShaper;
 use iris::font::TrueTypeFontParser;
 use std::fs;
@@ -19,6 +19,46 @@ fn dom_new_canvas(i: usize, width: usize, height: usize) -> String {
     out
 }
 
+fn insert_implicit_points(
+    glyph: &SimpleGlyph,
+    start_index: usize,
+    end_index: usize,
+) -> Vec<((i16, i16), bool)> {
+    let mut points = glyph.coordinates[start_index..=end_index]
+        .iter()
+        .copied()
+        .zip(
+            glyph.flags[start_index..=end_index]
+                .iter()
+                .map(|f| f.on_curve())
+                .collect::<Vec<_>>(),
+        )
+        .collect::<Vec<_>>();
+
+    let mut i = 0;
+
+    while i < points.len() - 1 {
+        let (curr_coord, curr_on_curve) = points[i];
+        let (next_coord, next_on_curve) = points[i + 1];
+
+        if curr_on_curve == next_on_curve {
+            let (curr_x, curr_y) = curr_coord;
+            let (next_x, next_y) = next_coord;
+
+            let (dx, dy) = (next_x - curr_x, next_y - curr_y);
+            let (mid_x, mid_y) = (curr_x + dx, curr_y + dy);
+
+            points.insert(i + 1, ((mid_x, mid_y), !curr_on_curve));
+
+            i += 1;
+        }
+
+        i += 1;
+    }
+
+    points
+}
+
 fn draw_glyph_to_canvas(glyph: &Glyph, key: usize) -> Result<String> {
     let GlyphData::Simple(simple_glyph) = &glyph.data else {
         todo!("how does compound glyphs look on canvas?");
@@ -35,39 +75,26 @@ fn draw_glyph_to_canvas(glyph: &Glyph, key: usize) -> Result<String> {
     for end_index in &simple_glyph.end_points_of_contours {
         let end_index = *end_index as usize;
 
-        let mut i = start_index;
+        let points = insert_implicit_points(&simple_glyph, start_index, end_index);
 
-        let (x, y) = simple_glyph.coordinates[i];
-        out += &format!("ctx{key}.moveTo({}, {});\n", x, y);
+        let mut i = 0;
 
-        i += 1;
-
-        while i <= end_index {
-            let (prev_x, prev_y) = simple_glyph.coordinates[i - 1];
-            let prev_on_curve = simple_glyph.on_curve(i - 1);
-
-            let (curr_x, curr_y) = simple_glyph.coordinates[i];
-            let start_on_curve = simple_glyph.on_curve(i);
-
-            match (prev_on_curve, start_on_curve) {
-                (true, true) => {
-                    let (dx, dy) = simple_glyph.interpolate_with_prev(i)?;
-
-                    // an implicit off-curve point.
-                    out += &format!(
-                        "ctx{key}.quadraticCurveTo({}, {}, {}, {});\n",
-                        prev_x + dx,
-                        prev_y + dy,
-                        curr_x,
-                        curr_y,
-                    );
-                }
-                _ => {
-                    out += &format!("ctx{key}.lineTo({}, {});\n", curr_x, curr_y);
-                }
+        while i < points.len() - 2 {
+            if i == 0 {
+                let ((x, y), on_curve) = points[0];
+                out += &format!("ctx{key}.moveTo({}, {});\n", x, y);
+                assert!(on_curve, "First point should always be on curve.");
             }
 
-            i += 1
+            let (mid_x, mid_y) = points[i + 1].0;
+            let (next_x, next_y) = points[i + 2].0;
+
+            out += &format!(
+                "ctx{key}.quadraticCurveTo({}, {}, {}, {});\n",
+                mid_x, mid_y, next_x, next_y,
+            );
+
+            i += 2;
         }
 
         out += &format!("ctx{key}.closePath();\n");
@@ -137,4 +164,51 @@ fn main() -> Result<()> {
     println!("Done!\tfile://{}", abs_path.display());
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use iris::font::grammar::SimpleGlyphFlag;
+
+    #[test]
+    fn draw_implicit_points() {
+        const ON_CURVE: u8 = 0b1;
+        const OFF_CURVE: u8 = 0b0;
+
+        let simple_glyph = SimpleGlyph {
+            end_points_of_contours: vec![],
+            instruction_length: 0,
+            instructions: vec![],
+            flags: vec![
+                SimpleGlyphFlag(ON_CURVE), // (0, 0), should add in between here and the next
+                SimpleGlyphFlag(ON_CURVE), // (2, 2)
+                SimpleGlyphFlag(OFF_CURVE), // (4, 4) should add in between here and the next
+                SimpleGlyphFlag(OFF_CURVE), // (6, 6) should add in between here and the next
+                SimpleGlyphFlag(OFF_CURVE), // (4, 4)
+                SimpleGlyphFlag(ON_CURVE), // (6, 6)
+                SimpleGlyphFlag(OFF_CURVE), // (2, 2)
+            ],
+            coordinates: vec![(0, 0), (2, 2), (4, 4), (6, 6), (4, 4), (6, 6), (2, 2)],
+        };
+
+        let points = insert_implicit_points(&simple_glyph, 0, 6);
+        dbg!(&points);
+
+        assert_eq!(
+            points,
+            vec![
+                ((0, 0), true),
+                ((1, 1), false),
+                ((2, 2), true),
+                ((4, 4), false),
+                ((5, 5), true),
+                ((6, 6), false),
+                ((5, 5), true),
+                ((4, 4), false),
+                ((6, 6), true),
+                ((2, 2), false)
+            ]
+        )
+    }
 }
