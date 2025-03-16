@@ -1,3 +1,6 @@
+use super::draw_uniform::DrawUniform;
+use super::shape::{compute_radius, Shape, ShapeStack};
+use crate::renderer::device::{GPUDevice, Shader, UniformBufferType};
 use crate::renderer::feature_uniform::{FeatureUniform, TransformAction};
 use crate::renderer::mouse_state::MouseState;
 use crate::{
@@ -28,9 +31,6 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use super::draw_uniform::DrawUniform;
-use super::shape::{compute_radius, Shape, ShapeStack};
-
 const VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, -1.0, 0.0],
@@ -56,271 +56,53 @@ const INDICES: &[u16] = &[
 ];
 
 struct State<'a> {
-    surface: Surface<'a>,
-    device: Device,
-    queue: Queue,
-    config: SurfaceConfiguration,
-    size: PhysicalSize<u32>,
-    image_render_pipeline: RenderPipeline,
+    window: &'a Window,
+    gpu_device: GPUDevice<'a>,
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     num_indices: u32,
-    #[allow(dead_code)]
-    diffuse_texture: Texture,
-    diffuse_bind_group: BindGroup,
-    window: &'a Window,
-
-    feature_uniform: FeatureUniform,
-    feature_buffer: Buffer,
-    feature_bind_group: BindGroup,
-
-    draw_uniform: DrawUniform,
-    draw_buffer: Buffer,
-    draw_bind_group: BindGroup,
+    image_shader: Shader<'a>,
 
     mouse_state: MouseState,
-
     shape_stack: ShapeStack,
 }
 
 impl<'a> State<'a> {
     async fn new(window: &'a Window, png: &'a Png) -> Result<State<'a>> {
-        let size = window.inner_size();
+        let gpu_device = GPUDevice::new(window).await?;
 
-        // The instance is a handle to our GPU
-        // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
-        let instance = Instance::new(InstanceDescriptor {
-            #[cfg(not(target_arch = "wasm32"))]
-            backends: Backends::PRIMARY,
-            #[cfg(target_arch = "wasm32")]
-            backends: Backends::GL,
-            ..Default::default()
-        });
+        let texture_resource = gpu_device.create_texture("png_image", png)?;
 
-        let surface = instance.create_surface(window)?;
-
-        let adapter = instance
-            .request_adapter(&RequestAdapterOptions {
-                power_preference: PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await
-            .ok_or_else(|| anyhow!("Failed to get adapter"))?;
-
-        let (device, queue) = adapter
-            .request_device(
-                &DeviceDescriptor {
-                    label: None,
-                    required_features: Features::empty(),
-                    // WebGL doesn't support all of wgpu's features, so if
-                    // we're building for the web we'll have to disable some.
-                    required_limits: if cfg!(target_arch = "wasm32") {
-                        Limits::downlevel_webgl2_defaults()
-                    } else {
-                        Limits::default()
-                    },
-                    memory_hints: Default::default(),
-                },
-                None, // Trace path
-            )
-            .await?;
-
-        let surface_caps = surface.get_capabilities(&adapter);
-        // Shader code in this tutorial assumes an Srgb surface texture. Using a different
-        // one will result all the colors coming out darker. If you want to support non
-        // Srgb surfaces, you'll need to account for that when drawing to the frame.
-        let surface_format = surface_caps
-            .formats
-            .iter()
-            .copied()
-            .find(|f| f.is_srgb())
-            .unwrap_or(surface_caps.formats[0]);
-
-        let config = SurfaceConfiguration {
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: surface_caps.present_modes[0],
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
+        let feature_uniform_resource = {
+            let (width, height) = gpu_device.surface_dimension();
+            let feature_uniform = FeatureUniform::new(width, height, png.gamma);
+            gpu_device.create_uniform(
+                "feature_uniform",
+                UniformBufferType::Feature(feature_uniform),
+            )?
         };
 
-        let diffuse_texture = Texture::from_bytes(&device, &queue, png)?;
+        let draw_uniform_resource = {
+            let draw_uniform = DrawUniform::new();
+            gpu_device.create_uniform("draw_uniform", UniformBufferType::Draw(draw_uniform))?
+        };
 
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: TextureViewDimension::D2,
-                            sample_type: TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-
-        let diffuse_bind_group = device.create_bind_group(&BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&diffuse_texture.view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&diffuse_texture.sampler),
-                },
+        let image_shader = gpu_device.create_shader(
+            "image",
+            "image_shader.wgsl",
+            &[
+                texture_resource,
+                feature_uniform_resource,
+                draw_uniform_resource,
             ],
-            label: Some("diffuse_bind_group"),
-        });
+        )?;
 
-        let feature_uniform = FeatureUniform::new(config.width, config.height, png.gamma);
-
-        let feature_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Feature Buffer"),
-            contents: bytemuck::cast_slice(&[feature_uniform]),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
-
-        let feature_bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("feature_bind_group_layout"),
-            });
-
-        let feature_bind_group = device.create_bind_group(&BindGroupDescriptor {
-            layout: &feature_bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: feature_buffer.as_entire_binding(),
-            }],
-            label: Some("feature_bind_group"),
-        });
-
-        let draw_uniform = DrawUniform::new();
-
-        let draw_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Draw Buffer"),
-            contents: bytemuck::cast_slice(&[draw_uniform]),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
-
-        let draw_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-            label: Some("draw_bind_group_layout"),
-        });
-
-        let draw_bind_group = device.create_bind_group(&BindGroupDescriptor {
-            layout: &draw_bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: draw_buffer.as_entire_binding(),
-            }],
-            label: Some("draw_bind_group"),
-        });
-
-        let image_shader = device.create_shader_module(ShaderModuleDescriptor {
-            label: Some("Shader"),
-            source: ShaderSource::Wgsl(include_str!("image_shader.wgsl").into()),
-        });
-
-        let image_render_pipeline_layout =
-            device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &texture_bind_group_layout,
-                    &feature_bind_group_layout,
-                    &draw_bind_group_layout,
-                ],
-                push_constant_ranges: &[],
-            });
-
-        let image_render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("Image Render Pipeline"),
-            layout: Some(&image_render_pipeline_layout),
-            vertex: VertexState {
-                module: &image_shader,
-                entry_point: "vs_main",
-                buffers: &[Vertex::desc()],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(FragmentState {
-                module: &image_shader,
-                entry_point: "fs_main",
-                targets: &[Some(ColorTargetState {
-                    format: config.format,
-                    blend: Some(BlendState {
-                        color: BlendComponent::REPLACE,
-                        alpha: BlendComponent::REPLACE,
-                    }),
-                    write_mask: ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                // or Features::POLYGON_MODE_POINT
-                polygon_mode: PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
-                unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            // If the pipeline will be used with a multiview renderer pass, this
-            // indicates how many array layers the attachments will have.
-            multiview: None,
-            // Useful for optimizing shader compilation on Android
-            cache: None,
-        });
-
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        let vertex_buffer = gpu_device.device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
             usage: BufferUsages::VERTEX,
         });
-        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        let index_buffer = gpu_device.device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Index Buffer"),
             contents: bytemuck::cast_slice(INDICES),
             usage: BufferUsages::INDEX,
@@ -331,24 +113,12 @@ impl<'a> State<'a> {
         let shape_stack = ShapeStack::new();
 
         Ok(Self {
-            surface,
-            device,
-            queue,
-            config,
-            size,
-            image_render_pipeline,
+            window,
+            gpu_device,
             vertex_buffer,
             index_buffer,
             num_indices,
-            diffuse_texture,
-            diffuse_bind_group,
-            window,
-            feature_uniform,
-            feature_buffer,
-            feature_bind_group,
-            draw_uniform,
-            draw_buffer,
-            draw_bind_group,
+            image_shader,
             mouse_state,
             shape_stack,
         })
@@ -359,24 +129,14 @@ impl<'a> State<'a> {
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
-        // if new_size.width > 0 && new_size.height > 0 {
-        //     let new_height = (new_size.width * self.config.height) / self.config.width;
-        //     self.size = new_size;
-        //     self.size.height = new_height;
-        //
-        //     self.config.width = new_size.width;
-        //     self.config.height = new_height;
-        //     self.surface.configure(&self.device, &self.config);
-        // }
-
-        if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
-            self.feature_uniform
-                .update_window_dimensions(self.config.width, self.config.height);
+        if new_size.width == 0 || new_size.height == 0 {
+            return;
         }
+
+        self.gpu_device.resize(new_size);
+
+        // self.feature_uniform
+        //     .update_window_dimensions(self.config.width, self.config.height);
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {

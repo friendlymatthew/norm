@@ -6,6 +6,7 @@ use wgpu::{
     TextureUsages, TextureView, TextureViewDescriptor,
 };
 
+#[derive(Debug)]
 pub struct Texture {
     #[allow(unused)]
     pub texture: wgpu::Texture,
