@@ -139,7 +139,11 @@ fn main() -> Result<()> {
     let ttf = TrueTypeFontParser::new(&ttf_file).parse()?;
     let shaper = TrueTypeFontShaper::from(&ttf);
 
-    let glyphs = shaper.shape(&phrase);
+    let glyphs = if phrase.is_empty() {
+        ttf.glyph_table.glyphs.iter().collect()
+    } else {
+        shaper.shape(&phrase)
+    };
 
     let mut render_js_code = String::new();
     render_js_code += "const contentDiv = document.getElementById(\"content\")\n";
