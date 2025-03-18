@@ -1,26 +1,15 @@
 use super::draw_uniform::DrawUniform;
 use super::shape::{compute_radius, Shape, ShapeStack};
-use crate::renderer::device::{GPUDevice, Shader, UniformBufferType};
+use crate::renderer::device::{GPUDevice, Shader, ShaderResourceType, UniformBufferType};
 use crate::renderer::feature_uniform::{FeatureUniform, TransformAction};
 use crate::renderer::mouse_state::MouseState;
-use crate::{
-    png::grammar::Png,
-    renderer::{Texture, Vertex},
-};
-use anyhow::{anyhow, Result};
+use crate::{png::grammar::Png, renderer::Vertex};
+use anyhow::Result;
 use std::iter;
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt},
-    Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendState, Buffer,
-    BufferBindingType, BufferUsages, Color, ColorTargetState, ColorWrites,
-    CommandEncoderDescriptor, Device, DeviceDescriptor, Features, FragmentState, FrontFace,
-    IndexFormat, Instance, InstanceDescriptor, Limits, LoadOp, MultisampleState, Operations,
-    PipelineLayoutDescriptor, PolygonMode, PowerPreference, PrimitiveState, PrimitiveTopology,
-    Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
-    RenderPipelineDescriptor, RequestAdapterOptions, SamplerBindingType, ShaderModuleDescriptor,
-    ShaderSource, ShaderStages, StoreOp, Surface, SurfaceConfiguration, SurfaceError,
-    TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexState,
+    Buffer, BufferUsages, Color, CommandEncoderDescriptor, IndexFormat, LoadOp, Operations,
+    RenderPassColorAttachment, RenderPassDescriptor, StoreOp, SurfaceError, TextureViewDescriptor,
 };
 use winit::window::CursorIcon;
 use winit::{
@@ -61,7 +50,7 @@ struct State<'a> {
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     num_indices: u32,
-    image_shader: Shader<'a>,
+    image_shader: Shader,
 
     mouse_state: MouseState,
     shape_stack: ShapeStack,
@@ -76,7 +65,7 @@ impl<'a> State<'a> {
         let feature_uniform_resource = {
             let (width, height) = gpu_device.surface_dimension();
             let feature_uniform = FeatureUniform::new(width, height, png.gamma);
-            gpu_device.create_uniform(
+            gpu_device.create_uniform::<FeatureUniform>(
                 "feature_uniform",
                 UniformBufferType::Feature(feature_uniform),
             )?
@@ -84,13 +73,16 @@ impl<'a> State<'a> {
 
         let draw_uniform_resource = {
             let draw_uniform = DrawUniform::new();
-            gpu_device.create_uniform("draw_uniform", UniformBufferType::Draw(draw_uniform))?
+            gpu_device.create_uniform::<DrawUniform>(
+                "draw_uniform",
+                UniformBufferType::Draw(draw_uniform),
+            )?
         };
 
         let image_shader = gpu_device.create_shader(
             "image",
-            "image_shader.wgsl",
-            &[
+            include_str!("image_shader.wgsl"),
+            [
                 texture_resource,
                 feature_uniform_resource,
                 draw_uniform_resource,
@@ -135,13 +127,27 @@ impl<'a> State<'a> {
 
         self.gpu_device.resize(new_size);
 
-        // self.feature_uniform
-        //     .update_window_dimensions(self.config.width, self.config.height);
+        let ShaderResourceType::Uniform(_, UniformBufferType::Feature(mut feature_uniform)) =
+            self.image_shader.resources[1].resource
+        else {
+            panic!("Can not find feature uniform");
+        };
+
+        feature_uniform.update_window_dimensions(new_size.width, new_size.height)
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
-        let feature_uniform = &mut self.feature_uniform;
-        let draw_uniform = &mut self.draw_uniform;
+        let ShaderResourceType::Uniform(_, UniformBufferType::Feature(feature_uniform)) =
+            &mut self.image_shader.resources[1].resource
+        else {
+            panic!("")
+        };
+
+        let ShaderResourceType::Uniform(_, UniformBufferType::Draw(draw_uniform)) =
+            &mut self.image_shader.resources[2].resource
+        else {
+            panic!()
+        };
 
         match event {
             WindowEvent::MouseInput { state, button, .. } => {
@@ -190,7 +196,7 @@ impl<'a> State<'a> {
                 if let Some(center) = self.mouse_state.start_drag() {
                     let radius = compute_radius(center, (x, y));
                     dbg!("dragging: radius", radius);
-                    self.draw_uniform.set_circle_radius(radius);
+                    draw_uniform.set_circle_radius(radius);
                 }
 
                 self.mouse_state.update_position(x, y);
@@ -260,34 +266,27 @@ impl<'a> State<'a> {
             _ => return false,
         }
 
+        dbg!(&self.image_shader.resources);
+
         true
     }
 
     fn update(&self) {
-        self.queue.write_buffer(
-            &self.feature_buffer,
-            0,
-            bytemuck::cast_slice(&[self.feature_uniform]),
-        );
-
-        self.queue.write_buffer(
-            &self.draw_buffer,
-            0,
-            bytemuck::cast_slice(&[self.draw_uniform]),
-        );
+        self.gpu_device.update_uniform(&self.image_shader);
     }
 
     fn render(&self) -> Result<(), SurfaceError> {
-        let output = self.surface.get_current_texture()?;
+        let output = self.gpu_device.surface.get_current_texture()?;
         let view = output
             .texture
             .create_view(&TextureViewDescriptor::default());
 
-        let mut encoder = self
-            .device
-            .create_command_encoder(&CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
+        let mut encoder =
+            self.gpu_device
+                .device
+                .create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("Render Encoder"),
+                });
 
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -310,36 +309,44 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            render_pass.set_pipeline(&self.image_render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.feature_bind_group, &[]);
-            render_pass.set_bind_group(2, &self.draw_bind_group, &[]);
+            render_pass.set_pipeline(&self.image_shader.render_pipeline);
+
+            let _ = &self
+                .image_shader
+                .resources
+                .iter()
+                .enumerate()
+                .for_each(|(i, resource)| {
+                    let bind_group = &resource.bind_group;
+                    render_pass.set_bind_group(i as u32, &bind_group, &[]);
+                });
+
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
 
-            self.shape_stack.shapes().iter().for_each(|shape| {
-                let &Shape::Circle { x, y, radius } = shape;
-
-                let shape_uniform = DrawUniform {
-                    crosshair: self.draw_uniform.crosshair,
-                    circle_center_x: x,
-                    circle_center_y: y,
-                    circle_radius: radius,
-                };
-
-                self.queue.write_buffer(
-                    &self.draw_buffer,
-                    0,
-                    bytemuck::cast_slice(&[shape_uniform]),
-                );
-
-                render_pass.set_bind_group(2, &self.draw_bind_group, &[]);
-            });
+            // self.shape_stack.shapes().iter().for_each(|shape| {
+            //     let &Shape::Circle { x, y, radius } = shape;
+            //
+            //     let shape_uniform = DrawUniform {
+            //         crosshair: self.draw_uniform.crosshair,
+            //         circle_center_x: x,
+            //         circle_center_y: y,
+            //         circle_radius: radius,
+            //     };
+            //
+            //     self.queue.write_buffer(
+            //         &self.draw_buffer,
+            //         0,
+            //         bytemuck::cast_slice(&[shape_uniform]),
+            //     );
+            //
+            //     render_pass.set_bind_group(2, &self.draw_bind_group, &[]);
+            // });
 
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 
-        self.queue.submit(iter::once(encoder.finish()));
+        self.gpu_device.queue.submit(iter::once(encoder.finish()));
         output.present();
 
         Ok(())
@@ -425,7 +432,7 @@ pub async fn run(png: Png) -> anyhow::Result<()> {
                                 Ok(_) => {}
                                 // Reconfigure the surface if it's lost or outdated
                                 Err(SurfaceError::Lost | SurfaceError::Outdated) => {
-                                    state.resize(state.size)
+                                    state.resize(state.gpu_device.size)
                                 }
                                 // The system is out of memory, we should probably quit
                                 Err(SurfaceError::OutOfMemory) => {

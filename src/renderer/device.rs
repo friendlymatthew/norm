@@ -17,26 +17,17 @@ use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
 #[derive(Debug)]
-pub struct Shader<'a> {
-    module: ShaderModule,
-    pipeline_layout: PipelineLayout,
-    render_pipeline: RenderPipeline,
-    resources: &'a [ShaderResource],
+pub struct Shader {
+    pub module: ShaderModule,
+    pub pipeline_layout: PipelineLayout,
+    pub render_pipeline: RenderPipeline,
+    pub resources: [ShaderResource; 3], // todo, fix this
 }
 
 #[derive(Debug)]
 pub enum UniformBufferType {
     Feature(FeatureUniform),
     Draw(DrawUniform),
-}
-
-impl UniformBufferType {
-    pub fn inner<T>(&self) -> T {
-        match self {
-            UniformBufferType::Feature(u) => u,
-            UniformBufferType::Draw(u) => u,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -47,15 +38,15 @@ pub enum ShaderResourceType {
 
 #[derive(Debug)]
 pub struct ShaderResource {
-    resource: ShaderResourceType,
-    bind_group: BindGroup,
-    bind_group_layout: BindGroupLayout,
+    pub resource: ShaderResourceType,
+    pub bind_group: BindGroup,
+    pub bind_group_layout: BindGroupLayout,
 }
 
 #[derive(Debug)]
 pub struct GPUDevice<'a> {
     pub(crate) device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub(crate) queue: wgpu::Queue,
     pub(crate) surface: wgpu::Surface<'a>,
     pub(crate) surface_configuration: wgpu::SurfaceConfiguration,
     pub(crate) size: PhysicalSize<u32>,
@@ -196,11 +187,20 @@ impl<'a> GPUDevice<'a> {
         id: &str,
         uniform: UniformBufferType,
     ) -> Result<ShaderResource> {
-        let buffer = self.device.create_buffer_init(&BufferInitDescriptor {
-            label: Some(id),
-            contents: bytemuck::cast_slice(&[uniform.inner()]),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
+        let buffer = match uniform {
+            UniformBufferType::Draw(d) => self.device.create_buffer_init(&BufferInitDescriptor {
+                label: Some(id),
+                contents: bytemuck::cast_slice(&[d]),
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            }),
+            UniformBufferType::Feature(f) => {
+                self.device.create_buffer_init(&BufferInitDescriptor {
+                    label: Some(id),
+                    contents: bytemuck::cast_slice(&[f]),
+                    usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+                })
+            }
+        };
 
         let bind_group_layout = self
             .device
@@ -234,20 +234,20 @@ impl<'a> GPUDevice<'a> {
         })
     }
 
-    pub(crate) fn create_shader<'s>(
+    pub(crate) fn create_shader(
         &self,
         id: &str,
         shader_file: &str,
-        resources: &'s [ShaderResource],
-    ) -> Result<Shader<'s>> {
-        let bind_group_layouts = resources
+        resources: [ShaderResource; 3],
+    ) -> Result<Shader> {
+        let bind_group_layouts = &resources
             .iter()
             .map(|r| &r.bind_group_layout)
             .collect::<Vec<_>>();
 
         let module = self.device.create_shader_module(ShaderModuleDescriptor {
             label: Some(id),
-            source: ShaderSource::Wgsl(include_str!(shader_file).into()),
+            source: ShaderSource::Wgsl(shader_file.into()),
         });
 
         let pipeline_layout = self
@@ -322,5 +322,23 @@ impl<'a> GPUDevice<'a> {
         self.surface_configuration.height = new_size.height;
         self.surface
             .configure(&self.device, &self.surface_configuration);
+    }
+
+    pub(crate) fn update_uniform(&self, image_shader: &Shader) {
+        if let ShaderResourceType::Uniform(
+            feature_buffer,
+            UniformBufferType::Feature(feature_uniform),
+        ) = &image_shader.resources[1].resource
+        {
+            self.queue
+                .write_buffer(feature_buffer, 0, bytemuck::cast_slice(&[*feature_uniform]));
+        }
+
+        if let ShaderResourceType::Uniform(draw_buffer, UniformBufferType::Draw(draw_uniform)) =
+            &image_shader.resources[2].resource
+        {
+            self.queue
+                .write_buffer(draw_buffer, 0, bytemuck::cast_slice(&[*draw_uniform]));
+        }
     }
 }
