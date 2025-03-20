@@ -13,7 +13,7 @@ const C3: f32 = C2 / 2.0;
 impl Png {
     /// Return luma values normalized to [0.0, 1.0] and the mean intensity.
     fn luma_buffer(&self) -> LumaBuffer {
-        match self.color_type {
+        match self.color_type() {
             ColorType::Grayscale => {
                 let mut lumas = vec![0.0; self.pixel_buffer.len()];
                 let mut mean_intensity = 0.0;

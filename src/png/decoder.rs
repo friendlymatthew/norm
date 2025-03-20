@@ -111,10 +111,8 @@ impl<'a> PngDecoder<'a> {
         log_event("", Event::RowFilters, Some(d.elapsed()));
 
         Ok(Png {
-            width: image_header.width,
-            height: image_header.height,
+            image_header,
             gamma,
-            color_type: image_header.color_type,
             pixel_buffer,
         })
     }

@@ -13,7 +13,7 @@ pub enum Chunk<'a> {
     Gamma(u32),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ImageHeader {
     pub(crate) width: u32,
     pub(crate) height: u32,
@@ -100,26 +100,23 @@ impl TryFrom<u8> for Filter {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Png {
-    pub(crate) width: u32,
-    pub(crate) height: u32,
-    /// represents gamma * 100,000. `gamma` == 0 is SPECIAL.
+    pub(crate) image_header: ImageHeader,
     pub(crate) gamma: u32,
-    pub(crate) color_type: ColorType,
     pub(crate) pixel_buffer: Vec<u8>,
 }
 
 impl Png {
     pub const fn width(&self) -> u32 {
-        self.width
+        self.image_header.width
     }
 
     pub const fn height(&self) -> u32 {
-        self.height
+        self.image_header.height
     }
 
     /// The dimensions of the image (width, height).
     pub const fn dimensions(&self) -> (u32, u32) {
-        (self.width, self.height)
+        (self.width(), self.height())
     }
 
     pub const fn gamma(&self) -> u32 {
@@ -127,11 +124,11 @@ impl Png {
     }
 
     pub const fn color_type(&self) -> ColorType {
-        self.color_type
+        self.image_header.color_type
     }
 
     pub fn to_rgb8(&self) -> Cow<'_, [u8]> {
-        match self.color_type {
+        match self.color_type() {
             ColorType::RGB => Cow::from(&self.pixel_buffer),
             ColorType::RGBA => {
                 let b = self
@@ -165,7 +162,7 @@ impl Png {
     }
 
     pub fn to_rgba8(&self) -> Cow<'_, [u8]> {
-        match self.color_type {
+        match self.color_type() {
             ColorType::RGBA => Cow::from(&self.pixel_buffer),
             ColorType::RGB => {
                 let b = self
@@ -199,7 +196,7 @@ impl Png {
     }
 
     pub fn to_bitmap(&self) -> Cow<'_, [u32]> {
-        match self.color_type {
+        match self.color_type() {
             ColorType::RGB => {
                 let b = self
                     .pixel_buffer
@@ -245,10 +242,15 @@ impl Png {
     pub(crate) fn write_to_binary_blob(&self, path: &str) -> Result<()> {
         let mut file = File::create(path)?;
 
-        file.write_all(&self.width.to_be_bytes())?;
-        file.write_all(&self.height.to_be_bytes())?;
+        file.write_all(&self.width().to_be_bytes())?;
+        file.write_all(&self.height().to_be_bytes())?;
+        file.write_all(&self.image_header.bit_depth.to_be_bytes())?;
+        file.write_all(&(self.image_header.color_type as u8).to_be_bytes())?;
+        file.write_all(&self.image_header.compression_method.to_be_bytes())?;
+        file.write_all(&self.image_header.filter_method.to_be_bytes())?;
+        file.write_all(&(self.image_header.interlace_method as u8).to_be_bytes())?;
+
         file.write(&self.gamma.to_be_bytes())?;
-        file.write_all(&[self.color_type as u8])?;
         file.write_all(&self.pixel_buffer)?;
 
         Ok(())
@@ -263,20 +265,38 @@ impl Png {
         let mut height = [0; 4];
         file.read_exact(&mut height)?;
 
+        let mut bit_depth = [0; 1];
+        file.read_exact(&mut bit_depth)?;
+
+        let mut color_type = [0; 1];
+        file.read_exact(&mut color_type)?;
+
+        let mut compression_method = [0; 1];
+        file.read_exact(&mut compression_method)?;
+
+        let mut filter_method = [0; 1];
+        file.read_exact(&mut filter_method)?;
+
+        let mut interlace_method = [0; 1];
+        file.read_exact(&mut interlace_method)?;
+
         let mut gamma = [0; 4];
         file.read_exact(&mut gamma)?;
-
-        let mut color_type = [0];
-        file.read_exact(&mut color_type)?;
 
         let mut pixel_buffer = Vec::new();
         file.read_to_end(&mut pixel_buffer)?;
 
         Ok(Self {
-            width: u32::from_be_bytes(width),
-            height: u32::from_be_bytes(height),
+            image_header: ImageHeader {
+                width: u32::from_be_bytes(width),
+                height: u32::from_be_bytes(height),
+                bit_depth: bit_depth[0],
+                color_type: color_type[0].try_into()?,
+                compression_method: compression_method[0],
+                filter_method: filter_method[0],
+                interlace_method: interlace_method[0] != 0,
+            },
             gamma: u32::from_be_bytes(gamma),
-            color_type: color_type[0].try_into()?,
             pixel_buffer,
         })
     }
