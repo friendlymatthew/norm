@@ -12,11 +12,12 @@ impl ShapeStack {
         self.shapes.push(shape);
     }
 
-    pub fn shapes(&self) -> &[Shape] {
+    pub fn _shapes(&self) -> &[Shape] {
         &self.shapes
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum Shape {
     Circle { x: f32, y: f32, radius: f32 },
