@@ -1,4 +1,5 @@
 use crate::png::grammar::ImageHeader;
+use crate::png::scanline_writer::ScanlineWriter;
 use anyhow::Result;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
@@ -35,11 +36,11 @@ pub trait PngChunk {
 }
 
 #[derive(Debug)]
-pub struct IHDRChunk {
-    pub image_header: ImageHeader,
+pub struct IHDRChunk<'a> {
+    pub image_header: &'a ImageHeader,
 }
 
-impl PngChunk for IHDRChunk {
+impl PngChunk for IHDRChunk<'_> {
     const NAME: [u8; 4] = *b"IHDR";
 
     fn data(&self) -> Result<Vec<u8>> {
@@ -58,10 +59,10 @@ impl PngChunk for IHDRChunk {
         buffer.extend_from_slice(&width.to_be_bytes());
         buffer.extend_from_slice(&height.to_be_bytes());
         buffer.extend_from_slice(&bit_depth.to_be_bytes());
-        buffer.extend_from_slice(&(color_type as u8).to_be_bytes());
+        buffer.extend_from_slice(&(*color_type as u8).to_be_bytes());
         buffer.extend_from_slice(&compression_method.to_be_bytes());
         buffer.extend_from_slice(&filter_method.to_be_bytes());
-        buffer.extend_from_slice(&(interlace_method as u8).to_be_bytes());
+        buffer.extend_from_slice(&(*interlace_method as u8).to_be_bytes());
 
         Ok(buffer)
     }
@@ -75,18 +76,23 @@ impl PngChunk for PLTEChunk {
 }
 
 #[derive(Debug)]
-pub struct IDATChunk {
-    pub data: Vec<u8>,
+pub struct IDATChunk<'a> {
+    pub image_header: &'a ImageHeader,
+    pub data: &'a [u8],
 }
 
-impl PngChunk for IDATChunk {
+impl PngChunk for IDATChunk<'_> {
     const NAME: [u8; 4] = *b"IDAT";
 
     fn data(&self) -> Result<Vec<u8>> {
+        let scanline_writer = ScanlineWriter::new(self.image_header);
+        let mut scanned_pixels = Vec::new();
+        scanline_writer.write(&mut scanned_pixels, self.data)?;
+
         let compressed_data = Vec::new();
 
         let mut encoder = ZlibEncoder::new(compressed_data, Compression::fast());
-        encoder.write_all(&self.data)?;
+        encoder.write_all(&scanned_pixels)?;
 
         Ok(encoder.finish()?)
     }

@@ -9,3 +9,4 @@ mod decoder;
 mod encoder;
 mod interlace;
 mod scanline_reader;
+mod scanline_writer;

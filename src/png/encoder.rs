@@ -12,7 +12,7 @@ impl<W: Write> PngEncoder<W> {
         Self { writer }
     }
 
-    pub fn encode(&mut self, png: Png) -> Result<()> {
+    pub fn encode(&mut self, png: &Png) -> Result<()> {
         self.writer.write_all(b"\x89PNG\r\n\x1A\n")?;
 
         let Png {
@@ -27,7 +27,10 @@ impl<W: Write> PngEncoder<W> {
         // let palette_chunk = PLTEChunk;
         // palette_chunk.write(&mut self.writer)?;
 
-        let image_data_chunk = IDATChunk { data: pixel_buffer };
+        let image_data_chunk = IDATChunk {
+            image_header,
+            data: pixel_buffer,
+        };
         image_data_chunk.write(&mut self.writer)?;
 
         let image_end = IENDChunk;
@@ -51,7 +54,24 @@ mod tests {
         let file = File::create("./tests/obama_encoded.png")?;
         let mut encoder = PngEncoder::new(file);
 
-        encoder.encode(png)?;
+        encoder.encode(&png)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_encode_round_trip() -> Result<()> {
+        let data = std::fs::read("./tests/obama.png")?;
+        let png = PngDecoder::new(&data).decode()?;
+
+        let file = File::create("./tests/obama_encoded.png")?;
+        let mut encoder = PngEncoder::new(file);
+        encoder.encode(&png)?;
+
+        let data = std::fs::read("./tests/obama_encoded.png")?;
+        let from_encoded_png = PngDecoder::new(&data).decode()?;
+
+        assert_eq!(png, from_encoded_png);
 
         Ok(())
     }
