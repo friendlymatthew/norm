@@ -10,7 +10,7 @@
 A PNG editor from scratch (well, as close to scratch as possible).
 
 As a decoder, this project uses the [PNG test suite](http://www.schaik.com/pngsuite/) to validate its ability to handle
-various PNG features and edge cases. Currently, png can decode and render images with an 8-bit color depth.
+various PNG features and edge cases. Currently, iris can decode and render images with an 8-bit color depth.
 
 The renderer supports various image processing features on the GPU.
 
@@ -47,10 +47,13 @@ cargo r --bin iris-png-test-suite
 
 ### PNG Specification
 
-http://www.libpng.org/pub/png/pngintro.html<br>
 https://www.w3.org/TR/2003/REC-PNG-20031110/<br>
-http://www.libpng.org/pub/png/pngpic2.html<br>
+http://www.libpng.org/pub/png/pngintro.html<br>
 https://www.w3.org/Graphics/PNG/platform.html<br>
+https://optipng.sourceforge.net/pngtech/optipng.html<br>
+https://optipng.sourceforge.net/pngtech/better-filtering.html<br>
+http://www.libpng.org/pub/png/pngpic2.html<br>
+https://www.lucaversari.it/FJXL_and_FPNGE.pdf<br>
 
 ### GPU Programming
 
@@ -59,13 +62,14 @@ https://raphlinus.github.io/gpu/2020/02/12/gpu-resources.html<br>
 
 ### Image Processing
 
+https://www.youtube.com/watch?v=KuXjwB4LzSA<br>
+https://www.shadertoy.com/view/4tSyzy<br>
+https://www.shadertoy.com/view/wsK3Wt<br>
+
 https://www.cns.nyu.edu/pub/lcv/wang03-preprint.pdf<br>
 https://www.cns.nyu.edu/pub/eero/wang03b.pdf<br>
 https://ece.uwaterloo.ca/~z70wang/research/ssim/<br>
 http://arxiv.org/pdf/2006.13846<br>
-
-https://www.youtube.com/watch?v=KuXjwB4LzSA<br>
-https://www.shadertoy.com/view/4tSyzy<br>
 
 ### TrueType Font Rendering
 
@@ -77,6 +81,4 @@ https://medium.com/@evanwallace/easy-scalable-text-rendering-on-the-gpu-c3f4d782
 
 ### Miscellaneous
 
-https://www.lucaversari.it/FJXL_and_FPNGE.pdf<br>
-https://optipng.sourceforge.net/pngtech/optipng.html<br>
 https://www.joelonsoftware.com/2003/10/08/the-absolute-minimum-every-software-developer-absolutely-positively-must-know-about-unicode-and-character-sets-no-excuses/<br>
