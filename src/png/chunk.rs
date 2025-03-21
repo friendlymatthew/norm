@@ -85,14 +85,13 @@ impl PngChunk for IDATChunk<'_> {
     const NAME: [u8; 4] = *b"IDAT";
 
     fn data(&self) -> Result<Vec<u8>> {
-        let scanline_writer = ScanlineWriter::new(self.image_header);
-        let mut scanned_pixels = Vec::new();
-        scanline_writer.write(&mut scanned_pixels, self.data)?;
+        let scanned_pixels = Vec::new();
+        let mut scanline_writer = ScanlineWriter::new(scanned_pixels, self.image_header);
+        scanline_writer.write(self.data)?;
 
         let compressed_data = Vec::new();
-
         let mut encoder = ZlibEncoder::new(compressed_data, Compression::fast());
-        encoder.write_all(&scanned_pixels)?;
+        encoder.write_all(&scanline_writer.finish())?;
 
         Ok(encoder.finish()?)
     }
