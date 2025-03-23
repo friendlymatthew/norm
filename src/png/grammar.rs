@@ -1,8 +1,17 @@
-use anyhow::{bail, Result};
+use anyhow::{
+    bail,
+    Result,
+};
 #[cfg(test)]
 use std::io::Write;
-use std::{borrow::Cow, collections::BTreeMap, slice::ChunksExact};
-use std::{fs::File, io::Read, path::PathBuf};
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+    fs::File,
+    io::Read,
+    path::PathBuf,
+    slice::ChunksExact,
+};
 
 #[derive(Debug)]
 pub enum Chunk<'a> {

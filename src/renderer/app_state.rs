@@ -1,16 +1,45 @@
-use crate::png::grammar::Png;
-use crate::renderer::draw_uniform::DrawUniform;
-use crate::renderer::feature_uniform::{FeatureUniform, TransformAction};
-use crate::renderer::gpu_state::{GpuResourceAllocator, Shader};
-use crate::renderer::mouse_state::MouseState;
-use crate::renderer::shape::{compute_radius, Shape, ShapeStack};
+use crate::{
+    png::grammar::Png,
+    renderer::{
+        draw_uniform::DrawUniform,
+        feature_uniform::{
+            FeatureUniform,
+            TransformAction,
+        },
+        gpu_state::{
+            GpuResourceAllocator,
+            Shader,
+        },
+        mouse_state::MouseState,
+        shape::{
+            compute_radius,
+            Shape,
+            ShapeStack,
+        },
+    },
+};
 use anyhow::Result;
 use wgpu::SurfaceError;
-use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, Event, KeyEvent, MouseButton, WindowEvent};
-use winit::event_loop::EventLoop;
-use winit::keyboard::{KeyCode, PhysicalKey};
-use winit::window::{CursorIcon, Window, WindowBuilder};
+use winit::{
+    dpi::PhysicalSize,
+    event::{
+        ElementState,
+        Event,
+        KeyEvent,
+        MouseButton,
+        WindowEvent,
+    },
+    event_loop::EventLoop,
+    keyboard::{
+        KeyCode,
+        PhysicalKey,
+    },
+    window::{
+        CursorIcon,
+        Window,
+        WindowBuilder,
+    },
+};
 
 /// AppState is the state that is created by user input.
 #[derive(Debug)]

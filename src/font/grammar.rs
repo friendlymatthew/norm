@@ -1,8 +1,14 @@
+use crate::util::read_bytes::{
+    U16_BYTES,
+    U8_BYTES,
+};
+use anyhow::{
+    anyhow,
+    bail,
+    ensure,
+    Result,
+};
 use std::collections::BTreeMap;
-
-use anyhow::{anyhow, bail, ensure, Result};
-
-use crate::util::read_bytes::{U16_BYTES, U8_BYTES};
 
 pub type ShortFrac = i16;
 pub type Fixed = i32;
@@ -209,7 +215,8 @@ impl CMapFormat4 {
     pub fn find_glyph_index(&self, ch: char) -> usize {
         let char_code = ch as u16; // we can guarantee all characters are in BMP.
 
-        // 1. Search for the first `end_code` greater than or equal to the character code to be mapped.
+        // 1. Search for the first `end_code` greater than or equal to the character code to be
+        //    mapped.
         let i = self
             .end_codes
             .binary_search(&char_code)

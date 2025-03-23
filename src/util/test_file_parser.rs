@@ -1,9 +1,15 @@
 // A parser to parse the file names in PngSuite.
 // http://www.schaik.com/pngsuite/
 
-use std::{os::unix::ffi::OsStrExt, path::PathBuf};
-
-use anyhow::{anyhow, bail, Result};
+use anyhow::{
+    anyhow,
+    bail,
+    Result,
+};
+use std::{
+    os::unix::ffi::OsStrExt,
+    path::PathBuf,
+};
 
 pub struct PNGSuiteTestCase<'a> {
     pub test_desc: &'a str,
@@ -206,8 +212,10 @@ pub fn parse_test_file<'a>(file_path: &PathBuf) -> Result<PNGSuiteTestCase<'a>> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::OsStr;
-    use std::fs;
+    use std::{
+        ffi::OsStr,
+        fs,
+    };
 
     #[test]
     fn parse_every_file() -> Result<()> {

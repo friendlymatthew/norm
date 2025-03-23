@@ -1,4 +1,7 @@
-use crate::png::grammar::{Filter, ImageHeader};
+use crate::png::grammar::{
+    Filter,
+    ImageHeader,
+};
 use anyhow::Result;
 use std::io::Write;
 
@@ -19,7 +22,8 @@ const fn paeth_predict(orig_a: u8, orig_b: u8, orig_c: u8) -> u8 {
     }
 }
 
-/// Computes the output scanline using all five filters, and select the filter that gives the smallest sum of absolute values of outputs.
+/// Computes the output scanline using all five filters, and select the filter that gives the
+/// smallest sum of absolute values of outputs.
 fn test_filters(prev_chunk: &[u8], chunk: &[u8], num_bytes_per_pixel: usize) -> (Filter, Vec<u8>) {
     let mut sub_scanline = Vec::with_capacity(chunk.len());
     let mut up_scanline = Vec::with_capacity(chunk.len());

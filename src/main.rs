@@ -1,5 +1,11 @@
-use anyhow::{anyhow, Result};
-use iris::{png::PngDecoder, renderer};
+use anyhow::{
+    anyhow,
+    Result,
+};
+use iris::{
+    png::PngDecoder,
+    renderer,
+};
 use pollster::block_on;
 
 fn main() -> Result<()> {

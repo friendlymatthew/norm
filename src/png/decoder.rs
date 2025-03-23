@@ -1,24 +1,39 @@
-use anyhow::{bail, ensure, Result};
-use flate2::read::ZlibDecoder;
-use std::borrow::Cow;
-use std::collections::BTreeMap;
-use std::io::Read;
-
+#[cfg(feature = "time")]
+use crate::util::event_log::{
+    log_event,
+    Event,
+};
 use crate::{
     eof,
     png::{
         crc32::compute_crc,
-        grammar::{Chunk, ColorType, ImageHeader, Png},
+        grammar::{
+            Chunk,
+            ColorType,
+            ImageHeader,
+            Png,
+        },
+        scanline_reader::ScanlineReader,
     },
     read,
-    util::read_bytes::{U32_BYTES, U8_BYTES},
+    util::read_bytes::{
+        U32_BYTES,
+        U8_BYTES,
+    },
 };
-
-use crate::png::scanline_reader::ScanlineReader;
-#[cfg(feature = "time")]
-use crate::util::event_log::{log_event, Event};
+use anyhow::{
+    bail,
+    ensure,
+    Result,
+};
+use flate2::read::ZlibDecoder;
 #[cfg(feature = "time")]
 use std::time::Instant;
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+    io::Read,
+};
 
 #[derive(Debug)]
 pub struct PngDecoder<'a> {
@@ -304,7 +319,8 @@ mod tests {
         Ok(())
     }
 
-    // A note about the following test cases, these images were hand checked. This way, binary blobs can be generated with confidence, not hubris.
+    // A note about the following test cases, these images were hand checked. This way, binary blobs
+    // can be generated with confidence, not hubris.
 
     #[test]
     fn test_basic_grayscale_8bit() -> Result<()> {

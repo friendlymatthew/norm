@@ -1,5 +1,12 @@
-use crate::png::chunk::{IDATChunk, IENDChunk, IHDRChunk, PngChunk};
-use crate::png::grammar::Png;
+use crate::png::{
+    chunk::{
+        IDATChunk,
+        IENDChunk,
+        IHDRChunk,
+        PngChunk,
+    },
+    grammar::Png,
+};
 use anyhow::Result;
 use std::io::Write;
 

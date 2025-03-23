@@ -1,9 +1,29 @@
-use anyhow::{anyhow, Result};
-use comfy_table::{Attribute, Cell, Color, Table};
-use iris::png::{grammar::Png, PngDecoder};
-use iris::util::test_file_parser::{parse_test_file, PNGSuiteTestCase};
-use std::ffi::OsStr;
-use std::{fmt, fs, panic};
+use anyhow::{
+    anyhow,
+    Result,
+};
+use comfy_table::{
+    Attribute,
+    Cell,
+    Color,
+    Table,
+};
+use iris::{
+    png::{
+        grammar::Png,
+        PngDecoder,
+    },
+    util::test_file_parser::{
+        parse_test_file,
+        PNGSuiteTestCase,
+    },
+};
+use std::{
+    ffi::OsStr,
+    fmt,
+    fs,
+    panic,
+};
 
 #[derive(Debug)]
 enum TestStatus<'a> {

@@ -1,8 +1,13 @@
-use anyhow::{anyhow, Result};
+use anyhow::{
+    anyhow,
+    Result,
+};
 use iris::png::PngDecoder;
-
 #[cfg(feature = "time")]
-use iris::util::event_log::{log_event, Event};
+use iris::util::event_log::{
+    log_event,
+    Event,
+};
 #[cfg(feature = "time")]
 use std::time::Instant;
 

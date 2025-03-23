@@ -1,6 +1,9 @@
 #![allow(clippy::suboptimal_flops)]
 
-use crate::png::grammar::{ColorType, Png};
+use crate::png::grammar::{
+    ColorType,
+    Png,
+};
 use anyhow::ensure;
 
 const K1: f32 = 0.01;
@@ -83,8 +86,8 @@ impl Png {
         }
     }
 
-    /// `compute_ssim` takes a full-reference image to calculate the global structural similarity index.
-    /// A value closer to 1 indicates better image quality.
+    /// `compute_ssim` takes a full-reference image to calculate the global structural similarity
+    /// index. A value closer to 1 indicates better image quality.
     pub fn compute_sim(&self, reference_image: &Self) -> anyhow::Result<f32> {
         ensure!(
             self.dimensions() == reference_image.dimensions(),

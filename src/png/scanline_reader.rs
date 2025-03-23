@@ -1,7 +1,12 @@
 #![allow(clippy::needless_lifetimes)]
 
-use crate::png::grammar::{Filter, ImageHeader};
-use crate::png::interlace::compute_pass_counts;
+use crate::png::{
+    grammar::{
+        Filter,
+        ImageHeader,
+    },
+    interlace::compute_pass_counts,
+};
 use anyhow::Result;
 
 #[derive(Debug)]

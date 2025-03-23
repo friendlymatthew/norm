@@ -1,5 +1,4 @@
 pub use app_state::run;
-
 pub(crate) use texture::*;
 pub(crate) use vertex::*;
 

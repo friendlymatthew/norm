@@ -1,11 +1,19 @@
 use anyhow::Result;
-use iris::font::grammar::{Glyph, GlyphData, SimpleGlyph};
-use iris::font::shaper::TrueTypeFontShaper;
-use iris::font::TrueTypeFontParser;
-use std::fs;
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
+use iris::font::{
+    grammar::{
+        Glyph,
+        GlyphData,
+        SimpleGlyph,
+    },
+    shaper::TrueTypeFontShaper,
+    TrueTypeFontParser,
+};
+use std::{
+    fs,
+    fs::File,
+    io::Write,
+    path::Path,
+};
 
 fn dom_new_canvas(i: usize, width: usize, height: usize) -> String {
     let mut out = String::new();

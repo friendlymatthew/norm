@@ -1,7 +1,15 @@
-use anyhow::{anyhow, Result};
-use iris::png::{grammar::Png, PngDecoder};
-use std::fs;
-use std::time::Instant;
+use anyhow::{
+    anyhow,
+    Result,
+};
+use iris::png::{
+    grammar::Png,
+    PngDecoder,
+};
+use std::{
+    fs,
+    time::Instant,
+};
 
 fn read_png(image_path: &str) -> Result<Png> {
     let image_data = fs::read(image_path)?;

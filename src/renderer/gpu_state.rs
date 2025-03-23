@@ -1,19 +1,59 @@
-use crate::png::grammar::Png;
-use crate::renderer::{Texture, Vertex};
-use anyhow::{anyhow, Result};
-use std::iter;
-use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{
-    BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    BindingResource, BindingType, BlendComponent, BlendState, BufferBindingType, BufferUsages,
-    Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor, FragmentState, FrontFace,
-    IndexFormat, LoadOp, MultisampleState, Operations, PolygonMode, PrimitiveState,
-    PrimitiveTopology, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
-    SamplerBindingType, ShaderStages, StoreOp, SurfaceError, TextureSampleType,
-    TextureViewDescriptor, TextureViewDimension, VertexState,
+use crate::{
+    png::grammar::Png,
+    renderer::{
+        Texture,
+        Vertex,
+    },
 };
-use winit::dpi::PhysicalSize;
-use winit::window::Window;
+use anyhow::{
+    anyhow,
+    Result,
+};
+use std::iter;
+use wgpu::{
+    util::{
+        BufferInitDescriptor,
+        DeviceExt,
+    },
+    BindGroupDescriptor,
+    BindGroupEntry,
+    BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry,
+    BindingResource,
+    BindingType,
+    BlendComponent,
+    BlendState,
+    BufferBindingType,
+    BufferUsages,
+    Color,
+    ColorTargetState,
+    ColorWrites,
+    CommandEncoderDescriptor,
+    FragmentState,
+    FrontFace,
+    IndexFormat,
+    LoadOp,
+    MultisampleState,
+    Operations,
+    PolygonMode,
+    PrimitiveState,
+    PrimitiveTopology,
+    RenderPassColorAttachment,
+    RenderPassDescriptor,
+    RenderPipelineDescriptor,
+    SamplerBindingType,
+    ShaderStages,
+    StoreOp,
+    SurfaceError,
+    TextureSampleType,
+    TextureViewDescriptor,
+    TextureViewDimension,
+    VertexState,
+};
+use winit::{
+    dpi::PhysicalSize,
+    window::Window,
+};
 
 const VERTICES: &[Vertex] = &[
     Vertex {

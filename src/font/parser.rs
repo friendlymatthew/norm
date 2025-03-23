@@ -1,18 +1,59 @@
-use std::collections::BTreeMap;
-
 use super::grammar::{
-    CMapFormat0, CMapFormat12, CMapFormat4, CMapIndividualGroup, CMapSubtable, CMapTable,
-    ComponentGlyph, ComponentGlyphArgument, ComponentGlyphFlag, ComponentGlyphTransformation,
-    CompoundGlyph, F2Dot14, FWord, Fixed, FontDirectory, Glyph, GlyphData, GlyphDescription,
-    GlyphTable, HHeaTable, HMtxTable, HeadTable, LongDateTime, LongHorizontalMetric, MaxPTable,
-    OffsetSubTable, ScalarType, SimpleGlyph, SimpleGlyphFlag, TableRecord, TableTag,
-    TrueTypeFontFile, UnsignedFWord,
+    CMapFormat0,
+    CMapFormat12,
+    CMapFormat4,
+    CMapIndividualGroup,
+    CMapSubtable,
+    CMapTable,
+    ComponentGlyph,
+    ComponentGlyphArgument,
+    ComponentGlyphFlag,
+    ComponentGlyphTransformation,
+    CompoundGlyph,
+    F2Dot14,
+    FWord,
+    Fixed,
+    FontDirectory,
+    Glyph,
+    GlyphData,
+    GlyphDescription,
+    GlyphTable,
+    HHeaTable,
+    HMtxTable,
+    HeadTable,
+    LongDateTime,
+    LongHorizontalMetric,
+    MaxPTable,
+    OffsetSubTable,
+    ScalarType,
+    SimpleGlyph,
+    SimpleGlyphFlag,
+    TableRecord,
+    TableTag,
+    TrueTypeFontFile,
+    UnsignedFWord,
 };
-
-use crate::font::grammar::{IndexToLocFormat, Platform, PlatformDouble};
-use crate::util::read_bytes::{U16_BYTES, U32_BYTES, U64_BYTES, U8_BYTES};
-use crate::{eof, read};
-use anyhow::{bail, ensure, Result};
+use crate::{
+    eof,
+    font::grammar::{
+        IndexToLocFormat,
+        Platform,
+        PlatformDouble,
+    },
+    read,
+    util::read_bytes::{
+        U16_BYTES,
+        U32_BYTES,
+        U64_BYTES,
+        U8_BYTES,
+    },
+};
+use anyhow::{
+    bail,
+    ensure,
+    Result,
+};
+use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct TrueTypeFontParser<'a> {
@@ -319,8 +360,9 @@ impl<'a> TrueTypeFontParser<'a> {
     }
 
     // A note about the CMap table formats:
-    // Many of the cmap formats are either obsolete or were designed to meet anticipated needs which never materialized.
-    // Modern font generation tools might not need to be able to write general-purpose cmaps in formats other than 4 and 12.
+    // Many of the cmap formats are either obsolete or were designed to meet anticipated needs which
+    // never materialized. Modern font generation tools might not need to be able to write
+    // general-purpose cmaps in formats other than 4 and 12.
     //
     // Returns Ok(None) if that cmap subtable format is unsupported.
     fn parse_cmap_subtable(&mut self) -> Result<Option<CMapSubtable>> {
