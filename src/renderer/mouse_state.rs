@@ -11,7 +11,7 @@ impl MouseState {
         self.pressed
     }
 
-    pub(crate) fn set_pressed(&mut self, state: bool) {
+    pub(crate) const fn set_pressed(&mut self, state: bool) {
         self.pressed = state;
     }
 
@@ -27,7 +27,7 @@ impl MouseState {
         (self.position_x, self.position_y)
     }
 
-    pub(crate) fn update_position(&mut self, x: f32, y: f32) {
+    pub(crate) const fn update_position(&mut self, x: f32, y: f32) {
         self.position_x = x;
         self.position_y = y;
     }

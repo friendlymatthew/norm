@@ -7,6 +7,7 @@ mod draw_uniform;
 mod feature_uniform;
 mod gpu_state;
 mod mouse_state;
+mod shader;
 mod shape;
 mod texture;
 mod vertex;

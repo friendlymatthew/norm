@@ -1,59 +1,14 @@
 use crate::{
     png::grammar::Png,
     renderer::{
-        Texture,
-        Vertex,
+        shader::{Shader, TextureResource, UniformResource},
+        Texture, Vertex,
     },
 };
-use anyhow::{
-    anyhow,
-    Result,
-};
+use anyhow::{anyhow, Result};
 use std::iter;
-use wgpu::{
-    util::{
-        BufferInitDescriptor,
-        DeviceExt,
-    },
-    BindGroupDescriptor,
-    BindGroupEntry,
-    BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry,
-    BindingResource,
-    BindingType,
-    BlendComponent,
-    BlendState,
-    BufferBindingType,
-    BufferUsages,
-    Color,
-    ColorTargetState,
-    ColorWrites,
-    CommandEncoderDescriptor,
-    FragmentState,
-    FrontFace,
-    IndexFormat,
-    LoadOp,
-    MultisampleState,
-    Operations,
-    PolygonMode,
-    PrimitiveState,
-    PrimitiveTopology,
-    RenderPassColorAttachment,
-    RenderPassDescriptor,
-    RenderPipelineDescriptor,
-    SamplerBindingType,
-    ShaderStages,
-    StoreOp,
-    SurfaceError,
-    TextureSampleType,
-    TextureViewDescriptor,
-    TextureViewDimension,
-    VertexState,
-};
-use winit::{
-    dpi::PhysicalSize,
-    window::Window,
-};
+use wgpu::util::DeviceExt;
+use winit::{dpi::PhysicalSize, window::Window};
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -80,34 +35,14 @@ const INDICES: &[u16] = &[
 ];
 
 #[derive(Debug)]
-pub struct Shader {
-    // pub pipeline_layout: wgpu::PipelineLayout,
-    pub render_pipeline: wgpu::RenderPipeline,
-
-    pub texture_resources: Vec<TextureResource>,
-    pub uniform_resources: Vec<UniformResource>,
-}
-
-pub type TextureResource = ShaderResource<Texture>;
-pub type UniformResource = ShaderResource<wgpu::Buffer>;
-
-#[derive(Debug)]
-pub struct ShaderResource<T> {
-    pub resource: T,
-    pub bind_group: wgpu::BindGroup,
-    pub bind_group_layout: wgpu::BindGroupLayout,
-}
-
-#[derive(Debug)]
 pub struct GpuResourceAllocator<'a> {
     surface: wgpu::Surface<'a>,
     device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub(crate) queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
 
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_indices: u32,
+    pub(crate) vertex_buffer: wgpu::Buffer,
+    pub(crate) index_buffer: wgpu::Buffer,
 }
 
 impl<'a> GpuResourceAllocator<'a> {
@@ -153,7 +88,7 @@ impl<'a> GpuResourceAllocator<'a> {
             .await?;
 
         let surface_caps = surface.get_capabilities(&adapter);
-        // Shader code in this tutorial assumes an Srgb surface texture. Using a different
+        // Shader code in this tutorial assumes a Srgb surface texture. Using a different
         // one will result all the colors coming out darker. If you want to support non
         // Srgb surfaces, you'll need to account for that when drawing to the frame.
         let surface_format = surface_caps
@@ -174,17 +109,16 @@ impl<'a> GpuResourceAllocator<'a> {
             desired_maximum_frame_latency: 2,
         };
 
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
-        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
             contents: bytemuck::cast_slice(INDICES),
             usage: wgpu::BufferUsages::INDEX,
         });
-        let num_indices = INDICES.len() as u32;
 
         Ok(Self {
             surface,
@@ -194,11 +128,14 @@ impl<'a> GpuResourceAllocator<'a> {
 
             vertex_buffer,
             index_buffer,
-            num_indices,
         })
     }
 
-    fn update_config_size(&mut self, size: &PhysicalSize<u32>) {
+    pub const fn num_indices(&self) -> u32 {
+        INDICES.len() as u32
+    }
+
+    const fn update_config_size(&mut self, size: &PhysicalSize<u32>) {
         self.config.width = size.width;
         self.config.height = size.height;
     }
@@ -243,43 +180,43 @@ impl<'a> GpuResourceAllocator<'a> {
 
         let render_pipeline = self
             .device
-            .create_render_pipeline(&RenderPipelineDescriptor {
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some(label),
                 layout: Some(&pipeline_layout),
-                vertex: VertexState {
+                vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: "vs_main",
                     buffers: &[Vertex::desc()],
                     compilation_options: Default::default(),
                 },
-                fragment: Some(FragmentState {
+                fragment: Some(wgpu::FragmentState {
                     module: &shader,
                     entry_point: "fs_main",
-                    targets: &[Some(ColorTargetState {
+                    targets: &[Some(wgpu::ColorTargetState {
                         format: self.config.format,
-                        blend: Some(BlendState {
-                            color: BlendComponent::REPLACE,
-                            alpha: BlendComponent::REPLACE,
+                        blend: Some(wgpu::BlendState {
+                            color: wgpu::BlendComponent::REPLACE,
+                            alpha: wgpu::BlendComponent::REPLACE,
                         }),
-                        write_mask: ColorWrites::ALL,
+                        write_mask: wgpu::ColorWrites::ALL,
                     })],
                     compilation_options: Default::default(),
                 }),
-                primitive: PrimitiveState {
-                    topology: PrimitiveTopology::TriangleList,
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
-                    front_face: FrontFace::Ccw,
+                    front_face: wgpu::FrontFace::Ccw,
                     cull_mode: None,
                     // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
                     // or Features::POLYGON_MODE_POINT
-                    polygon_mode: PolygonMode::Fill,
+                    polygon_mode: wgpu::PolygonMode::Fill,
                     // Requires Features::DEPTH_CLIP_CONTROL
                     unclipped_depth: false,
                     // Requires Features::CONSERVATIVE_RASTERIZATION
                     conservative: false,
                 },
                 depth_stencil: None,
-                multisample: MultisampleState {
+                multisample: wgpu::MultisampleState {
                     count: 1,
                     mask: !0,
                     alpha_to_coverage_enabled: false,
@@ -304,38 +241,40 @@ impl<'a> GpuResourceAllocator<'a> {
         label: &str,
         buffer: T,
     ) -> Result<UniformResource> {
-        let buffer = self.device.create_buffer_init(&BufferInitDescriptor {
-            label: Some(label),
-            contents: bytemuck::cast_slice(&[buffer]),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
-
-        let bind_group_layout = self
+        let buffer = self
             .device
-            .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
+                contents: bytemuck::cast_slice(&[buffer]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
-        let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+        let bind_group_layout =
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                    label: Some(label),
+                });
+
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
-            entries: &[BindGroupEntry {
+            entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: buffer.as_entire_binding(),
             }],
             label: Some(label),
         });
 
-        Ok(ShaderResource {
+        Ok(UniformResource {
             resource: buffer,
             bind_group,
             bind_group_layout,
@@ -347,44 +286,44 @@ impl<'a> GpuResourceAllocator<'a> {
 
         let texture_bind_group_layout =
             self.device
-                .create_bind_group_layout(&BindGroupLayoutDescriptor {
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     entries: &[
-                        BindGroupLayoutEntry {
+                        wgpu::BindGroupLayoutEntry {
                             binding: 0,
-                            visibility: ShaderStages::FRAGMENT,
-                            ty: BindingType::Texture {
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
                                 multisampled: false,
-                                view_dimension: TextureViewDimension::D2,
-                                sample_type: TextureSampleType::Float { filterable: true },
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
                             },
                             count: None,
                         },
-                        BindGroupLayoutEntry {
+                        wgpu::BindGroupLayoutEntry {
                             binding: 1,
-                            visibility: ShaderStages::FRAGMENT,
-                            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                             count: None,
                         },
                     ],
                     label: Some("texture_bind_group_layout"),
                 });
 
-        let diffuse_bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+        let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
-                BindGroupEntry {
+                wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&diffuse_texture.view),
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
                 },
-                BindGroupEntry {
+                wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&diffuse_texture.sampler),
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
                 },
             ],
             label: Some(label),
         });
 
-        Ok(ShaderResource {
+        Ok(TextureResource {
             resource: diffuse_texture,
             bind_group: diffuse_bind_group,
             bind_group_layout: texture_bind_group_layout,
@@ -402,81 +341,32 @@ impl<'a> GpuResourceAllocator<'a> {
                 .write_buffer(uniform_buffer, 0, bytemuck::cast_slice(&[uniform_struct]));
     }
 
-    pub fn render(&self, shader: &Shader) -> Result<(), SurfaceError> {
+    pub fn begin_frame(
+        &self,
+    ) -> Result<
+        (
+            wgpu::SurfaceTexture,
+            wgpu::TextureView,
+            wgpu::CommandEncoder,
+        ),
+        wgpu::SurfaceError,
+    > {
         let output = self.surface.get_current_texture()?;
+
         let view = output
             .texture
-            .create_view(&TextureViewDescriptor::default());
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut encoder = self
+        let encoder = self
             .device
-            .create_command_encoder(&CommandEncoderDescriptor {
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            });
+        Ok((output, view, encoder))
+    }
 
-            render_pass.set_pipeline(&shader.render_pipeline);
-
-            let mut i = 0;
-
-            shader.texture_resources.iter().for_each(|r| {
-                render_pass.set_bind_group(i, &r.bind_group, &[]);
-                i += 1;
-            });
-
-            shader.uniform_resources.iter().for_each(|r| {
-                render_pass.set_bind_group(i, &r.bind_group, &[]);
-                i += 1;
-            });
-
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
-
-            // self.shape_stack.shapes().iter().for_each(|shape| {
-            //     let &Shape::Circle { x, y, radius } = shape;
-            //
-            //     let shape_uniform = DrawUniform {
-            //         crosshair: self.draw_uniform.crosshair,
-            //         circle_center_x: x,
-            //         circle_center_y: y,
-            //         circle_radius: radius,
-            //     };
-            //
-            //     self.queue.write_buffer(
-            //         &self.draw_buffer,
-            //         0,
-            //         bytemuck::cast_slice(&[shape_uniform]),
-            //     );
-            //
-            //     render_pass.set_bind_group(2, &self.draw_bind_group, &[]);
-            // });
-
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
-        }
-
+    pub fn end_frame(&self, encoder: wgpu::CommandEncoder) {
         self.queue.submit(iter::once(encoder.finish()));
-        output.present();
-
-        Ok(())
     }
 }

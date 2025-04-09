@@ -2,43 +2,21 @@ use crate::{
     png::grammar::Png,
     renderer::{
         draw_uniform::DrawUniform,
-        feature_uniform::{
-            FeatureUniform,
-            TransformAction,
-        },
-        gpu_state::{
-            GpuResourceAllocator,
-            Shader,
-        },
+        feature_uniform::{FeatureUniform, TransformAction},
+        gpu_state::GpuResourceAllocator,
         mouse_state::MouseState,
-        shape::{
-            compute_radius,
-            Shape,
-            ShapeStack,
-        },
+        shader::Shader,
+        shape::{compute_radius, Shape, ShapeStack},
     },
 };
 use anyhow::Result;
-use wgpu::SurfaceError;
+
 use winit::{
     dpi::PhysicalSize,
-    event::{
-        ElementState,
-        Event,
-        KeyEvent,
-        MouseButton,
-        WindowEvent,
-    },
+    event::{ElementState, Event, KeyEvent, MouseButton, WindowEvent},
     event_loop::EventLoop,
-    keyboard::{
-        KeyCode,
-        PhysicalKey,
-    },
-    window::{
-        CursorIcon,
-        Window,
-        WindowBuilder,
-    },
+    keyboard::{KeyCode, PhysicalKey},
+    window::{CursorIcon, Window, WindowBuilder},
 };
 
 /// AppState is the state that is created by user input.
@@ -245,8 +223,56 @@ impl<'a> AppState<'a> {
             .write_uniform_buffer(&uniform_resources[1].resource, self.draw_uniform);
     }
 
-    pub(crate) fn render(&self) -> Result<(), SurfaceError> {
-        self.gpu_allocator.render(&self.image_shader)?;
+    pub(crate) fn render(&self) -> Result<(), wgpu::SurfaceError> {
+        let (output, view, mut encoder) = self.gpu_allocator.begin_frame()?;
+
+        // Image shader render pass
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("content render pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+
+            render_pass.set_pipeline(&self.image_shader.render_pipeline);
+
+            let mut i = 0;
+
+            self.image_shader.texture_resources.iter().for_each(|r| {
+                render_pass.set_bind_group(i, &r.bind_group, &[]);
+                i += 1;
+            });
+
+            self.image_shader.uniform_resources.iter().for_each(|r| {
+                render_pass.set_bind_group(i, &r.bind_group, &[]);
+                i += 1;
+            });
+
+            render_pass.set_vertex_buffer(0, self.gpu_allocator.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(
+                self.gpu_allocator.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint16,
+            );
+
+            render_pass.draw_indexed(0..self.gpu_allocator.num_indices(), 0, 0..1);
+        }
+
+        self.gpu_allocator.end_frame(encoder);
+        output.present();
 
         Ok(())
     }
@@ -330,17 +356,17 @@ pub async fn run(png: Png) -> anyhow::Result<()> {
                             match state.render() {
                                 Ok(_) => {}
                                 // Reconfigure the surface if it's lost or outdated
-                                Err(SurfaceError::Lost | SurfaceError::Outdated) => {
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                                     state.resize(state.size)
                                 }
                                 // The system is out of memory, we should probably quit
-                                Err(SurfaceError::OutOfMemory) => {
+                                Err(wgpu::SurfaceError::OutOfMemory) => {
                                     log::error!("OutOfMemory");
                                     control_flow.exit();
                                 }
 
                                 // This happens when a frame takes too long to present
-                                Err(SurfaceError::Timeout) => {
+                                Err(wgpu::SurfaceError::Timeout) => {
                                     log::warn!("Surface timeout")
                                 }
                             }

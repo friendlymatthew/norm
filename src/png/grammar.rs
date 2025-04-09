@@ -39,7 +39,7 @@ impl ImageHeader {
     pub(crate) const fn num_bytes_per_pixel(&self) -> usize {
         let bits_per_pixel = self.color_type.num_channels() * self.bit_depth;
 
-        ((bits_per_pixel + 7) / 8) as usize
+        bits_per_pixel.div_ceil(8) as usize
     }
 }
 

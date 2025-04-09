@@ -35,7 +35,7 @@ impl FeatureUniform {
         }
     }
 
-    pub(crate) fn reset_features(&mut self) {
+    pub(crate) const fn reset_features(&mut self) {
         self.grayscale = 0;
         // self.sepia = 0;
         self.invert = 0;
@@ -59,7 +59,7 @@ impl FeatureUniform {
         self.invert == 1
     }
 
-    pub(crate) fn toggle_grayscale(&mut self) {
+    pub(crate) const fn toggle_grayscale(&mut self) {
         self.grayscale = !self.grayscale() as u32;
     }
 
@@ -67,7 +67,7 @@ impl FeatureUniform {
     //     self.sepia = !self.sepia() as u32;
     // }
 
-    pub(crate) fn toggle_invert(&mut self) {
+    pub(crate) const fn toggle_invert(&mut self) {
         self.invert = !self.invert() as u32;
     }
 }
@@ -81,7 +81,7 @@ impl FeatureUniform {
         self.blur == 1
     }
 
-    pub(crate) fn toggle_blur(&mut self) {
+    pub(crate) const fn toggle_blur(&mut self) {
         self.blur = !self.blur() as u32;
     }
 
@@ -103,7 +103,7 @@ impl FeatureUniform {
         self.sharpen == 1
     }
 
-    pub(crate) fn toggle_sharpen(&mut self) {
+    pub(crate) const fn toggle_sharpen(&mut self) {
         self.sharpen = !self.sharpen() as u32;
     }
 
@@ -117,7 +117,7 @@ impl FeatureUniform {
 }
 
 impl FeatureUniform {
-    pub(crate) fn update_window_dimensions(&mut self, width: u32, height: u32) {
+    pub(crate) const fn update_window_dimensions(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
     }
@@ -128,7 +128,7 @@ impl FeatureUniform {
         self.edge_detect == 1
     }
 
-    pub(crate) fn toggle_edge_detect(&mut self) {
+    pub(crate) const fn toggle_edge_detect(&mut self) {
         self.edge_detect = !self.edge_detect() as u32;
     }
 }

@@ -21,16 +21,16 @@ impl DrawUniform {
         self.crosshair == 1
     }
 
-    pub(crate) fn toggle_crosshair(&mut self) {
+    pub(crate) const fn toggle_crosshair(&mut self) {
         self.crosshair = !self.crosshair() as u32;
     }
 
-    pub(crate) fn set_circle_center(&mut self, x: f32, y: f32) {
+    pub(crate) const fn set_circle_center(&mut self, x: f32, y: f32) {
         self.circle_center_x = x;
         self.circle_center_y = y;
     }
 
-    pub(crate) fn set_circle_radius(&mut self, radius: f32) {
+    pub(crate) const fn set_circle_radius(&mut self, radius: f32) {
         self.circle_radius = radius;
     }
 }
