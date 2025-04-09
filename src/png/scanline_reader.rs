@@ -19,7 +19,7 @@ impl<'a> ScanlineReader<'a> {
     pub(crate) fn new(input_buffer: &'a [u8], image_header: &'a ImageHeader) -> Self {
         let row_bytes = image_header.num_bytes_per_pixel() * image_header.width as usize;
 
-        assert_eq!(
+        debug_assert_eq!(
             input_buffer.len() - image_header.height as usize,
             row_bytes * image_header.height as usize
         );

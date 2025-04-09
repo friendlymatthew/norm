@@ -97,7 +97,7 @@ impl Png {
         let reference_luma_buffer = reference_image.luma_buffer();
         let test_luma_buffer = self.luma_buffer();
 
-        assert_eq!(
+        debug_assert_eq!(
             reference_luma_buffer.lumas.len(),
             test_luma_buffer.lumas.len()
         );

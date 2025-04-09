@@ -75,7 +75,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
             let offset = self.cursor;
             let head = self.parse_head_table()?;
-            assert_eq!(self.cursor - offset, head_table_record.length as usize);
+            debug_assert_eq!(self.cursor - offset, head_table_record.length as usize);
 
             head
         };
@@ -86,7 +86,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
             let offset = self.cursor;
             let hhea = self.parse_hhea_table()?;
-            assert_eq!(self.cursor - offset, hhea_table_record.length as usize);
+            debug_assert_eq!(self.cursor - offset, hhea_table_record.length as usize);
 
             hhea
         };
@@ -97,7 +97,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
             let offset = self.cursor;
             let maxp = self.parse_maxp_table()?;
-            assert_eq!(self.cursor - offset, maxp_table_record.length as usize);
+            debug_assert_eq!(self.cursor - offset, maxp_table_record.length as usize);
 
             maxp
         };
@@ -110,7 +110,7 @@ impl<'a> TrueTypeFontParser<'a> {
             let loca =
                 self.parse_loca_table(&head_table.index_to_loc_format, &maxp_table.num_glyphs)?;
 
-            assert_eq!(self.cursor - offset, loca_table_record.length as usize);
+            debug_assert_eq!(self.cursor - offset, loca_table_record.length as usize);
 
             loca
         };
@@ -122,7 +122,7 @@ impl<'a> TrueTypeFontParser<'a> {
             let offset = self.cursor;
             let htmx =
                 self.parse_hmtx_table(hhea_table.num_of_long_hor_metrics, maxp_table.num_glyphs)?;
-            assert_eq!(self.cursor - offset, hmtx_table_record.length as usize);
+            debug_assert_eq!(self.cursor - offset, hmtx_table_record.length as usize);
 
             htmx
         };
@@ -502,7 +502,7 @@ impl<'a> TrueTypeFontParser<'a> {
             glyphs.push(Glyph { description, data });
         }
 
-        assert_eq!(glyphs.len(), num_glyphs);
+        debug_assert_eq!(glyphs.len(), num_glyphs);
 
         Ok(GlyphTable { glyphs })
     }
