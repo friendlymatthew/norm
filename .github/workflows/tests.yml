@@ -2,7 +2,7 @@ name: CI
 on:
   push:
     branches:
-      - main 
+      - main
   pull_request:
 
 jobs:
@@ -14,13 +14,13 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.83.0"
+          toolchain: "nightly"
 
       - name: version info
         run: rustc --version; cargo --version;
 
       - name: Run all tests
-        run: cargo test 
+        run: cargo test
 
   fmt:
     runs-on: ubuntu-latest
@@ -44,7 +44,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.83.0"
+          toolchain: "nightly"
 
       - run: |
           rustup component add clippy

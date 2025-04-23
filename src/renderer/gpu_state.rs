@@ -1,14 +1,25 @@
 use crate::{
     png::grammar::Png,
     renderer::{
-        shader::{Shader, TextureResource, UniformResource},
-        Texture, Vertex,
+        shader::{
+            Shader,
+            TextureResource,
+            UniformResource,
+        },
+        Texture,
+        Vertex,
     },
 };
-use anyhow::{anyhow, Result};
+use anyhow::{
+    anyhow,
+    Result,
+};
 use std::iter;
 use wgpu::util::DeviceExt;
-use winit::{dpi::PhysicalSize, window::Window};
+use winit::{
+    dpi::PhysicalSize,
+    window::Window,
+};
 
 const VERTICES: &[Vertex] = &[
     Vertex {

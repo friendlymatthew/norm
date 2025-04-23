@@ -2,21 +2,40 @@ use crate::{
     png::grammar::Png,
     renderer::{
         draw_uniform::DrawUniform,
-        feature_uniform::{FeatureUniform, TransformAction},
+        feature_uniform::{
+            FeatureUniform,
+            TransformAction,
+        },
         gpu_state::GpuResourceAllocator,
         mouse_state::MouseState,
         shader::Shader,
-        shape::{compute_radius, Shape, ShapeStack},
+        shape::{
+            compute_radius,
+            Shape,
+            ShapeStack,
+        },
     },
 };
 use anyhow::Result;
-
 use winit::{
     dpi::PhysicalSize,
-    event::{ElementState, Event, KeyEvent, MouseButton, WindowEvent},
+    event::{
+        ElementState,
+        Event,
+        KeyEvent,
+        MouseButton,
+        WindowEvent,
+    },
     event_loop::EventLoop,
-    keyboard::{KeyCode, PhysicalKey},
-    window::{CursorIcon, Window, WindowBuilder},
+    keyboard::{
+        KeyCode,
+        PhysicalKey,
+    },
+    window::{
+        CursorIcon,
+        Window,
+        WindowBuilder,
+    },
 };
 
 /// AppState is the state that is created by user input.
