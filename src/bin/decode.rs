@@ -16,6 +16,13 @@ fn main() -> Result<()> {
     let image_path = args
         .next()
         .ok_or_else(|| anyhow!("Failed to read image path"))?;
+    //
+    // let image_kind = args.next().and_then(|image_kind| {
+    //     match image_kind.as_bytes() {
+    //         b"jpeg" => {}
+    //         b"png" => {}
+    //     }
+    // });
 
     let content = std::fs::read(image_path)?;
 

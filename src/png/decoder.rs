@@ -5,11 +5,11 @@ use crate::util::event_log::{
 };
 use crate::{
     eof,
+    image::grammar::ColorType,
     png::{
         crc32::compute_crc,
         grammar::{
             Chunk,
-            ColorType,
             ImageHeader,
             Png,
         },
@@ -273,7 +273,10 @@ impl<'a> PngDecoder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::test_file_parser::parse_test_file;
+    use crate::{
+        image::grammar::ImageExt,
+        util::test_file_parser::parse_test_file,
+    };
     use anyhow::anyhow;
     use image::ImageReader;
     use pretty_assertions::assert_eq;
@@ -298,7 +301,7 @@ mod tests {
 
         let content = std::fs::read(&path)?;
         let generated_png = PngDecoder::new(&content).decode()?;
-        let generated_rgbs = generated_png.to_rgb8().to_vec();
+        let generated_rgbs = generated_png.rgb8().to_vec();
 
         assert_eq!(
             reference_rgbs,

@@ -1,5 +1,5 @@
 use crate::{
-    png::grammar::Png,
+    image::grammar::Image,
     renderer::{
         shader::{
             Shader,
@@ -292,8 +292,8 @@ impl<'a> GpuResourceAllocator<'a> {
         })
     }
 
-    pub fn create_texture_resource(&self, label: &str, png: &Png) -> Result<TextureResource> {
-        let diffuse_texture = Texture::from_bytes(&self.device, &self.queue, png)?;
+    pub fn create_texture_resource(&self, label: &str, image: &Image) -> Result<TextureResource> {
+        let diffuse_texture = Texture::from_bytes(&self.device, &self.queue, image)?;
 
         let texture_bind_group_layout =
             self.device

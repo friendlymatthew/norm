@@ -1,5 +1,5 @@
 use crate::{
-    png::grammar::Png,
+    image::grammar::Image,
     renderer::{
         draw_uniform::DrawUniform,
         feature_uniform::{
@@ -43,7 +43,6 @@ use winit::{
 pub struct AppState<'a> {
     pub gpu_allocator: GpuResourceAllocator<'a>,
 
-    // pub png: &'a Png,
     pub window: &'a Window,
     pub(crate) size: PhysicalSize<u32>,
 
@@ -56,14 +55,15 @@ pub struct AppState<'a> {
 }
 
 impl<'a> AppState<'a> {
-    pub async fn new(window: &'a Window, png: &'a Png) -> Result<AppState<'a>> {
+    pub async fn new(window: &'a Window, image: &'a Image) -> Result<AppState<'a>> {
         let gpu_allocator = GpuResourceAllocator::new(window).await?;
 
         let size = window.inner_size();
 
-        let image_texture_resource = gpu_allocator.create_texture_resource("image_texture", png)?;
+        let image_texture_resource =
+            gpu_allocator.create_texture_resource("image_texture", image)?;
 
-        let feature_uniform = { FeatureUniform::new(size.width, size.height, png.gamma) };
+        let feature_uniform = { FeatureUniform::new(size.width, size.height, image.gamma()) };
         let feature_uniform_resource =
             gpu_allocator.create_uniform_resource("feature_uniform", feature_uniform)?;
 
@@ -83,7 +83,6 @@ impl<'a> AppState<'a> {
 
         Ok(Self {
             gpu_allocator,
-            // png,
             window,
             size,
             feature_uniform,
@@ -299,7 +298,7 @@ impl<'a> AppState<'a> {
 
 #[allow(clippy::future_not_send)]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub async fn run(png: Png) -> anyhow::Result<()> {
+pub async fn run(image: Image) -> anyhow::Result<()> {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -311,7 +310,7 @@ pub async fn run(png: Png) -> anyhow::Result<()> {
 
     let event_loop = EventLoop::new()?;
 
-    let (width, height) = png.dimensions();
+    let (width, height) = image.dimensions();
 
     let window = WindowBuilder::new()
         .with_inner_size(PhysicalSize::new(width, height))
@@ -338,7 +337,7 @@ pub async fn run(png: Png) -> anyhow::Result<()> {
     }
 
     // State::new uses async code, so we're going to wait for it to finish
-    let mut state = AppState::new(&window, &png).await?;
+    let mut state = AppState::new(&window, &image).await?;
     let mut surface_configured = false;
 
     event_loop.run(move |event, control_flow| {

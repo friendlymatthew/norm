@@ -1,4 +1,4 @@
-use crate::png::grammar::Png;
+use crate::image::grammar::Image;
 use anyhow::*;
 use wgpu::{
     AddressMode,
@@ -29,17 +29,17 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn from_bytes(device: &Device, queue: &Queue, img: &Png) -> Result<Self> {
+    pub fn from_bytes(device: &Device, queue: &Queue, img: &Image) -> Result<Self> {
         Self::from_image(device, queue, img, None)
     }
 
     pub fn from_image(
         device: &Device,
         queue: &Queue,
-        img: &Png,
+        img: &Image,
         label: Option<&str>,
     ) -> Result<Self> {
-        let rgba = img.to_rgba8();
+        let rgba = img.rgba8();
         let dimensions = img.dimensions();
 
         let size = Extent3d {

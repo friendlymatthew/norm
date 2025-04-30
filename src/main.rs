@@ -3,7 +3,10 @@ use anyhow::{
     Result,
 };
 use iris::{
-    png::PngDecoder,
+    image::{
+        grammar::ImageKind,
+        ImageReader,
+    },
     renderer,
 };
 use pollster::block_on;
@@ -14,11 +17,9 @@ fn main() -> Result<()> {
         .next()
         .ok_or_else(|| anyhow!("Failed to read image path"))?;
 
-    let content = std::fs::read(image_path)?;
-    let mut decoder = PngDecoder::new(&content);
-    let png = decoder.decode()?;
+    let image = ImageReader::read_from_path(&image_path, Some(ImageKind::Png))?;
 
-    let _ = block_on(renderer::run(png));
+    let _ = block_on(renderer::run(image));
 
     Ok(())
 }

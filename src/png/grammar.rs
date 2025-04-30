@@ -1,3 +1,7 @@
+use crate::image::grammar::{
+    ColorType,
+    ImageExt,
+};
 use anyhow::{
     bail,
     Result,
@@ -43,44 +47,6 @@ impl ImageHeader {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ColorType {
-    Grayscale = 0,
-    RGB = 2,
-    Palette = 3,
-    GrayscaleAlpha = 4,
-    RGBA = 6,
-}
-
-impl ColorType {
-    pub(crate) const fn num_channels(&self) -> u8 {
-        match self {
-            Self::Grayscale => 1,
-            Self::RGB => 3,
-            Self::Palette => 1,
-            Self::GrayscaleAlpha => 2,
-            Self::RGBA => 4,
-        }
-    }
-}
-
-impl TryFrom<u8> for ColorType {
-    type Error = anyhow::Error;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        let val = match value {
-            0 => Self::Grayscale,
-            2 => Self::RGB,
-            3 => Self::Palette,
-            4 => Self::GrayscaleAlpha,
-            6 => Self::RGBA,
-            foreign => bail!("Unrecognized color type: {}", foreign),
-        };
-
-        Ok(val)
-    }
-}
-
 #[derive(Debug)]
 pub enum Filter {
     None = 0,
@@ -114,29 +80,24 @@ pub struct Png {
     pub(crate) pixel_buffer: Vec<u8>,
 }
 
-impl Png {
-    pub const fn width(&self) -> u32 {
+impl ImageExt for Png {
+    fn width(&self) -> u32 {
         self.image_header.width
     }
 
-    pub const fn height(&self) -> u32 {
+    fn height(&self) -> u32 {
         self.image_header.height
     }
 
-    /// The dimensions of the image (width, height).
-    pub const fn dimensions(&self) -> (u32, u32) {
-        (self.width(), self.height())
-    }
-
-    pub const fn gamma(&self) -> u32 {
+    fn gamma(&self) -> u32 {
         self.gamma
     }
 
-    pub const fn color_type(&self) -> ColorType {
+    fn color_type(&self) -> ColorType {
         self.image_header.color_type
     }
 
-    pub fn to_rgb8(&self) -> Cow<'_, [u8]> {
+    fn rgb8(&self) -> Cow<'_, [u8]> {
         match self.color_type() {
             ColorType::RGB => Cow::from(&self.pixel_buffer),
             ColorType::RGBA => {
@@ -170,7 +131,7 @@ impl Png {
         }
     }
 
-    pub fn to_rgba8(&self) -> Cow<'_, [u8]> {
+    fn rgba8(&self) -> Cow<'_, [u8]> {
         match self.color_type() {
             ColorType::RGBA => Cow::from(&self.pixel_buffer),
             ColorType::RGB => {
@@ -204,7 +165,7 @@ impl Png {
         }
     }
 
-    pub fn to_bitmap(&self) -> Cow<'_, [u32]> {
+    fn bitmap(&self) -> Cow<'_, [u32]> {
         match self.color_type() {
             ColorType::RGB => {
                 let b = self
@@ -245,7 +206,9 @@ impl Png {
             _ => todo!("What do other color type pixels look like?"),
         }
     }
+}
 
+impl Png {
     #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn write_to_binary_blob(&self, path: &str) -> Result<()> {
