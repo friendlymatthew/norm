@@ -47,7 +47,7 @@ impl TryFrom<u8> for ColorType {
 
 pub type Image = Box<dyn ImageExt>;
 
-pub trait ImageExt {
+pub trait ImageExt: Send + Sync {
     fn width(&self) -> u32;
 
     fn height(&self) -> u32;
