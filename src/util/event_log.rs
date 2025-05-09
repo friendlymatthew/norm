@@ -39,6 +39,6 @@ pub fn log_event(msg: &str, event: Event, duration: Option<Duration>) {
     }
 
     if matches!(event, Event::TotalElapsed) {
-        println!("{}", RESET);
+        println!("{RESET}");
     }
 }
