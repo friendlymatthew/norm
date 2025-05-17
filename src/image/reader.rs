@@ -4,6 +4,7 @@ use crate::{
         ImageExt,
         ImageKind,
     },
+    jpeg::JpegDecoder,
     png::PngDecoder,
 };
 use anyhow::Result;
@@ -18,12 +19,10 @@ impl ImageReader {
 
         let image_kind = image_kind.expect("how do you infer which image decoder to run?");
 
-        let image: Box<dyn ImageExt> = Box::new(match image_kind {
-            ImageKind::Png => PngDecoder::new(&data).decode()?,
-            ImageKind::Jpeg => {
-                todo!();
-            }
-        });
+        let image: Box<dyn ImageExt> = match image_kind {
+            ImageKind::Png => Box::new(PngDecoder::new(&data).decode()?),
+            ImageKind::Jpeg => Box::new(JpegDecoder::new(&data).decode()?),
+        };
 
         Ok(image)
     }

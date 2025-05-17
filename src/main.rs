@@ -17,7 +17,15 @@ fn main() -> Result<()> {
         .next()
         .ok_or_else(|| anyhow!("Failed to read image path"))?;
 
-    let image = ImageReader::read_from_path(&image_path, Some(ImageKind::Png))?;
+    let image_kind = args
+        .next()
+        .map(|t| match t.as_bytes() {
+            b"jpg" | b"jpeg" | b"j" => ImageKind::Jpeg,
+            _ => ImageKind::Png,
+        })
+        .unwrap_or(ImageKind::Png);
+
+    let image = ImageReader::read_from_path(&image_path, Some(image_kind))?;
 
     let _ = block_on(renderer::run(image));
 
