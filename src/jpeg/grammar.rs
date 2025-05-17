@@ -41,7 +41,8 @@ impl QuantizationTable {
 #[derive(Debug)]
 pub struct HuffmanTable {
     pub flag: u8,
-    pub element_range: Range<usize>,
+    pub code_lengths: Range<usize>,
+    pub symbols: Range<usize>,
 }
 
 #[derive(Debug)]

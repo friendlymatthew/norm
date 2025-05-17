@@ -83,7 +83,10 @@ impl<'a> JpegDecoder<'a> {
 
         Ok(JFIF {
             quantization_tables,
-            huffman_tables,
+            huffman_tables: {
+                ensure!(huffman_tables.len() == 4);
+                huffman_tables
+            },
             start_of_frame: start_of_frame.ok_or_else(|| anyhow!("expected start of frame"))?,
             start_of_scan: start_of_scan.ok_or_else(|| anyhow!("expected start of scan"))?,
             image_data: image_data.ok_or_else(|| anyhow!("expected image data"))?,
@@ -158,7 +161,17 @@ impl<'a> JpegDecoder<'a> {
 
         let huffman_table = HuffmanTable {
             flag,
-            element_range: Range {
+            code_lengths: {
+                let code_lengths = Range {
+                    start: self.cursor,
+                    end: self.cursor + 16,
+                };
+
+                self.cursor += 16;
+
+                code_lengths
+            },
+            symbols: Range {
                 start: self.cursor,
                 end: offset + length,
             },
