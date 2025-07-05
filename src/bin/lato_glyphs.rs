@@ -17,12 +17,9 @@ use std::{
 
 fn dom_new_canvas(i: usize, width: usize, height: usize) -> String {
     let mut out = String::new();
-    out += &format!(
-        "const newCanvas{} = document.createElement(\"canvas\");\n",
-        i
-    );
-    out += &format!("newCanvas{}.width = {};\n", i, width);
-    out += &format!("newCanvas{}.height = {};\n", i, height);
+    out += &format!("const newCanvas{i} = document.createElement(\"canvas\");\n",);
+    out += &format!("newCanvas{i}.width = {width};\n");
+    out += &format!("newCanvas{i}.height = {height};\n");
 
     out
 }
@@ -94,17 +91,14 @@ fn draw_glyph_to_canvas(glyph: &Glyph, key: usize) -> Result<String> {
         while i < points.len() - 2 {
             if i == 0 {
                 let ((x, y), on_curve) = points[0];
-                out += &format!("ctx{key}.moveTo({}, {});\n", x, y);
+                out += &format!("ctx{key}.moveTo({x}, {y});\n");
                 assert!(on_curve, "First point should always be on curve.");
             }
 
             let (mid_x, mid_y) = points[i + 1].0;
             let (next_x, next_y) = points[i + 2].0;
 
-            out += &format!(
-                "ctx{key}.quadraticCurveTo({}, {}, {}, {});\n",
-                mid_x, mid_y, next_x, next_y,
-            );
+            out += &format!("ctx{key}.quadraticCurveTo({mid_x}, {mid_y}, {next_x}, {next_y});\n",);
 
             i += 2;
         }
@@ -162,9 +156,9 @@ fn main() -> Result<()> {
         }
 
         render_js_code += &dom_new_canvas(i, glyph.description.width(), glyph.description.height());
-        render_js_code += &format!("const ctx{} = newCanvas{}.getContext(\"2d\");\n", i, i);
+        render_js_code += &format!("const ctx{i} = newCanvas{i}.getContext(\"2d\");\n");
         render_js_code += &draw_glyph_to_canvas(glyph, i)?;
-        render_js_code += &format!("contentDiv.appendChild(newCanvas{});\n\n", i);
+        render_js_code += &format!("contentDiv.appendChild(newCanvas{i});\n\n");
     }
 
     let dir_path = Path::new("glyph_playground");

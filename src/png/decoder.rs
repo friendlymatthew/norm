@@ -136,7 +136,7 @@ impl<'a> PngDecoder<'a> {
         expected_crc == compute_crc(chunk_type, chunk_data)
     }
 
-    fn parse_chunks(&mut self) -> Result<Vec<Chunk>> {
+    fn parse_chunks(&mut self) -> Result<Vec<Chunk<'_>>> {
         let mut chunks = Vec::new();
 
         let mut text_map = BTreeMap::new();
@@ -176,7 +176,7 @@ impl<'a> PngDecoder<'a> {
                     })
                 }
                 b"PLTE" => {
-                    ensure!(length % 3 == 0, "Chunk length not divisible by 3.");
+                    ensure!(length.is_multiple_of(3), "Chunk length not divisible by 3.");
                     ensure!(
                         !chunks.is_empty(),
                         "Empty chunks. Expected ImageHeader chunk."

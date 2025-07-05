@@ -52,8 +52,8 @@ impl fmt::Display for TestStatus<'_> {
             TestStatus::Passed => write!(f, "Passed"),
             TestStatus::Incorrect => write!(f, "Incorrect"),
             TestStatus::Unsupported => write!(f, "Unsupported"),
-            TestStatus::Panic(msg) => write!(f, "Panic: {:?}", msg),
-            TestStatus::Error(error) => write!(f, "Error: {:?}", error),
+            TestStatus::Panic(msg) => write!(f, "Panic: {msg:?}"),
+            TestStatus::Error(error) => write!(f, "Error: {error:?}"),
         }
     }
 }

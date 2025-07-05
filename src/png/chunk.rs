@@ -72,12 +72,12 @@ impl PngChunk for IHDRChunk<'_> {
     }
 }
 
-#[derive(Debug)]
-pub struct PLTEChunk; // todo!, how does the palette chunk serialize?
+// #[derive(Debug)]
+// pub struct PLTEChunk; // todo!, how does the palette chunk serialize?
 
-impl PngChunk for PLTEChunk {
-    const NAME: [u8; 4] = *b"PLTE";
-}
+// impl PngChunk for PLTEChunk {
+//     const NAME: [u8; 4] = *b"PLTE";
+// }
 
 #[derive(Debug)]
 pub struct IDATChunk<'a> {
