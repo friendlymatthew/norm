@@ -1,9 +1,9 @@
 # iris
 
 <p align="center">
-    <img src="tests/vangogh-gaussian-blur.png" alt="Van Gogh Blur" width="220"/>
-    <img src="tests/vangogh-normal.png" alt="Van Gogh Normal" width="220"/>
-    <img src="tests/vangogh-sharpen.png" alt="Van Gogh Sharpen" width="220"/>
+    <img src="obama-luma-gaussian-blur.png" width="250"/>
+    <img src="obama-normal.png" width="250"/>
+    <img src="obama-line-detection.png" width="250"/>
 </p>
 <br>
 
