@@ -1,31 +1,13 @@
 use crate::{
-    eof,
     jpeg::grammar::{
-        Component,
-        EncodingProcess,
-        HuffmanTable,
-        Jpeg,
-        Marker,
-        QuantizationTable,
-        StartOfFrame,
-        StartOfScan,
-        JFIF,
+        Component, EncodingProcess, HuffmanTable, Jpeg, Marker, QuantizationTable, StartOfFrame,
+        StartOfScan, JFIF,
     },
-    read,
-    util::read_bytes::{
-        U16_BYTES,
-        U8_BYTES,
-    },
+    read, read_slice,
+    util::read_bytes::{U16_BYTES, U8_BYTES},
 };
-use anyhow::{
-    anyhow,
-    ensure,
-    Result,
-};
-use std::ops::{
-    Range,
-    RangeInclusive,
-};
+use anyhow::{anyhow, ensure, Result};
+use std::ops::{Range, RangeInclusive};
 
 #[derive(Debug)]
 pub struct JpegDecoder<'a> {
@@ -217,30 +199,8 @@ impl<'a> JpegDecoder<'a> {
         Ok(range)
     }
 
-    eof!();
     read!(read_u8, u8, U8_BYTES);
     read!(read_u16, u16, U16_BYTES);
     read!(read_marker, Marker, U16_BYTES);
-
-    fn read_fixed<const N: usize>(&mut self) -> Result<&'a [u8; N]> {
-        self.eof(N)?;
-        let bs = &self.data[self.cursor..self.cursor + N];
-        self.cursor += N;
-
-        Ok(bs.try_into()?)
-    }
-
-    fn read_vec<T>(
-        &mut self,
-        capacity: usize,
-        read_fn: impl Fn(&mut Self) -> Result<T>,
-    ) -> Result<Vec<T>> {
-        let mut list = Vec::with_capacity(capacity);
-
-        for _ in 0..capacity {
-            list.push(read_fn(self)?)
-        }
-
-        Ok(list)
-    }
+    read_slice!();
 }

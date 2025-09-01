@@ -1,39 +1,21 @@
 #[cfg(feature = "time")]
-use crate::util::event_log::{
-    log_event,
-    Event,
-};
+use crate::util::event_log::{log_event, Event};
 use crate::{
     eof,
     image::grammar::ColorType,
     png::{
         crc32::compute_crc,
-        grammar::{
-            Chunk,
-            ImageHeader,
-            Png,
-        },
+        grammar::{Chunk, ImageHeader, Png},
         scanline_reader::ScanlineReader,
     },
-    read,
-    util::read_bytes::{
-        U32_BYTES,
-        U8_BYTES,
-    },
+    read, read_slice,
+    util::read_bytes::{U32_BYTES, U8_BYTES},
 };
-use anyhow::{
-    bail,
-    ensure,
-    Result,
-};
+use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
 #[cfg(feature = "time")]
 use std::time::Instant;
-use std::{
-    borrow::Cow,
-    collections::BTreeMap,
-    io::Read,
-};
+use std::{borrow::Cow, collections::BTreeMap, io::Read};
 
 #[derive(Debug)]
 pub struct PngDecoder<'a> {
@@ -251,15 +233,7 @@ impl<'a> PngDecoder<'a> {
     eof!();
     read!(read_u8, u8, U8_BYTES);
     read!(read_u32, u32, U32_BYTES);
-
-    fn read_slice(&mut self, len: usize) -> Result<&'a [u8]> {
-        self.eof(len)?;
-
-        let slice = &self.data[self.cursor..self.cursor + len];
-        self.cursor += len;
-
-        Ok(slice)
-    }
+    read_slice!();
 
     fn read_slice_until(&mut self, stop: u8) -> Result<&'a [u8]> {
         let cursor_start = self.cursor;
@@ -273,10 +247,7 @@ impl<'a> PngDecoder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        image::grammar::ImageExt,
-        util::test_file_parser::parse_test_file,
-    };
+    use crate::{image::grammar::ImageExt, util::test_file_parser::parse_test_file};
     use anyhow::anyhow;
     use image::ImageReader;
     use pretty_assertions::assert_eq;

@@ -7,9 +7,11 @@ pub const U64_BYTES: usize = size_of::<u64>();
 macro_rules! read {
     ($name:ident, $type:ty, $size:expr) => {
         fn $name(&mut self) -> Result<$type> {
-            self.eof($size)?;
+            let slice = self
+                .data
+                .get(self.cursor..self.cursor + $size)
+                .ok_or_else(|| anyhow::anyhow!("oob"))?;
 
-            let slice = &self.data[self.cursor..self.cursor + $size];
             let b = <$type>::from_be_bytes(slice.try_into()?);
             self.cursor += $size;
 
@@ -33,6 +35,46 @@ macro_rules! eof {
             );
 
             Ok(())
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! read_slice {
+    () => {
+        fn read_fixed<const N: usize>(&mut self) -> Result<&'a [u8; N]> {
+            let bs = self
+                .data
+                .get(self.cursor..self.cursor + N)
+                .ok_or_else(|| anyhow::anyhow!("oob"))?;
+
+            self.cursor += N;
+
+            Ok(bs.try_into()?)
+        }
+
+        fn read_vec<T>(
+            &mut self,
+            capacity: usize,
+            read_fn: impl Fn(&mut Self) -> Result<T>,
+        ) -> Result<Vec<T>> {
+            let mut list = Vec::with_capacity(capacity);
+
+            for _ in 0..capacity {
+                list.push(read_fn(self)?)
+            }
+
+            Ok(list)
+        }
+
+        fn read_slice(&mut self, len: usize) -> Result<&'a [u8]> {
+            let slice = self
+                .data
+                .get(self.cursor..self.cursor + len)
+                .ok_or_else(|| anyhow::anyhow!("oob"))?;
+            self.cursor += len;
+
+            Ok(slice)
         }
     };
 }
