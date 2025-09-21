@@ -236,6 +236,126 @@ impl<'a> GpuResourceAllocator<'a> {
         }
     }
 
+    pub fn create_shape_shader(
+        &self,
+        label: &str,
+        source: &str,
+        uniform_resource: crate::renderer::shader::UniformResource,
+        storage_buffer: &wgpu::Buffer,
+    ) -> Shader {
+        let shader = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(label),
+                source: wgpu::ShaderSource::Wgsl(source.into()),
+            });
+
+        // Create bind group layout for uniform + storage buffer
+        let bind_group_layout = self
+            .device
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("shape_bind_group_layout"),
+            });
+
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform_resource.resource.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: storage_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("shape_bind_group"),
+        });
+
+        let pipeline_layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some(label),
+                bind_group_layouts: &[&bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+        let render_pipeline = self
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some(label),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[crate::renderer::Vertex::desc()],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: self.config.format,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                    compilation_options: Default::default(),
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: None,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+                cache: None,
+            });
+
+        // Create a custom shader resource structure for shape shader
+        let shape_uniform_resource = crate::renderer::shader::UniformResource {
+            resource: uniform_resource.resource,
+            bind_group,
+            bind_group_layout,
+        };
+
+        Shader {
+            render_pipeline,
+            texture_resources: vec![],
+            uniform_resources: vec![shape_uniform_resource],
+        }
+    }
+
     pub fn create_uniform_resource<T: bytemuck::Pod>(
         &self,
         label: &str,
@@ -279,6 +399,77 @@ impl<'a> GpuResourceAllocator<'a> {
             bind_group,
             bind_group_layout,
         })
+    }
+
+    pub fn create_render_texture(&self, label: &str, width: u32, height: u32) -> TextureResource {
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: self.config.format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let diffuse_texture = Texture { texture, view, sampler };
+
+        let texture_bind_group_layout =
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                    label: Some("texture_bind_group_layout"),
+                });
+
+        let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+            ],
+            label: Some(label),
+        });
+
+        TextureResource {
+            resource: diffuse_texture,
+            bind_group: diffuse_bind_group,
+            bind_group_layout: texture_bind_group_layout,
+        }
     }
 
     pub fn create_texture_resource(&self, label: &str, image: &Image) -> Result<TextureResource> {
@@ -330,6 +521,22 @@ impl<'a> GpuResourceAllocator<'a> {
         })
     }
 
+    pub fn create_storage_buffer<T: bytemuck::Pod>(
+        &self,
+        label: &str,
+        data: &[T],
+    ) -> Result<wgpu::Buffer> {
+        let buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(label),
+                contents: bytemuck::cast_slice(data),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
+
+        Ok(buffer)
+    }
+
     pub fn write_uniform_buffer<T: bytemuck::Pod>(
         &self,
         uniform_buffer: &wgpu::Buffer,
@@ -339,6 +546,15 @@ impl<'a> GpuResourceAllocator<'a> {
             &self
                 .queue
                 .write_buffer(uniform_buffer, 0, bytemuck::cast_slice(&[uniform_struct]));
+    }
+
+    pub fn write_storage_buffer<T: bytemuck::Pod>(
+        &self,
+        storage_buffer: &wgpu::Buffer,
+        data: &[T],
+    ) {
+        self.queue
+            .write_buffer(storage_buffer, 0, bytemuck::cast_slice(data));
     }
 
     pub fn begin_frame(
@@ -368,5 +584,74 @@ impl<'a> GpuResourceAllocator<'a> {
 
     pub fn end_frame(&self, encoder: wgpu::CommandEncoder) {
         self.queue.submit(iter::once(encoder.finish()));
+    }
+
+    pub fn create_texture_resource_from_existing(&self, label: &str, texture: &crate::renderer::Texture) -> TextureResource {
+        let texture_bind_group_layout =
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                    label: Some("texture_bind_group_layout"),
+                });
+
+        let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                },
+            ],
+            label: Some(label),
+        });
+
+        // For this case, we'll create a reference-only texture resource
+        // We can't clone the actual wgpu::Texture, so we'll use a dummy one
+        let dummy_wgpu_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("dummy_reference"),
+            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: self.config.format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+
+        let dummy_view = dummy_wgpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let dummy_sampler = self.device.create_sampler(&wgpu::SamplerDescriptor::default());
+
+        let dummy_texture = crate::renderer::Texture {
+            texture: dummy_wgpu_texture,
+            view: dummy_view,
+            sampler: dummy_sampler,
+        };
+
+        TextureResource {
+            resource: dummy_texture,
+            bind_group: diffuse_bind_group,
+            bind_group_layout: texture_bind_group_layout,
+        }
     }
 }

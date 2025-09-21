@@ -9,5 +9,6 @@ mod gpu_state;
 mod mouse_state;
 mod shader;
 mod shape;
+mod shape_uniform;
 mod texture;
 mod vertex;

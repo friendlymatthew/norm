@@ -5,8 +5,9 @@ use crate::{
         feature_uniform::{FeatureUniform, TransformAction},
         gpu_state::GpuResourceAllocator,
         mouse_state::MouseState,
-        shader::Shader,
+        shader::{Shader, TextureResource},
         shape::{compute_radius, Shape, ShapeStack},
+        shape_uniform::{CircleData, ShapeUniform, MAX_CIRCLES},
     },
 };
 use anyhow::Result;
@@ -32,6 +33,10 @@ pub struct AppState<'a> {
     pub shape_stack: ShapeStack,
 
     pub image_shader: Shader,
+    pub shape_shader: Shader,
+    pub shape_render_texture: TextureResource,
+    pub shape_uniform: ShapeUniform,
+    pub circle_storage_buffer: wgpu::Buffer,
 }
 
 impl<'a> AppState<'a> {
@@ -51,10 +56,42 @@ impl<'a> AppState<'a> {
         let draw_uniform_resource =
             gpu_allocator.create_uniform_resource("draw_uniform", draw_uniform)?;
 
+        // Create shape render texture
+        let shape_render_texture = gpu_allocator.create_render_texture(
+            "shape_texture",
+            size.width,
+            size.height
+        );
+
+        // Create shape uniform and storage buffer
+        let shape_uniform = ShapeUniform::new(size.width, size.height);
+        let shape_uniform_resource =
+            gpu_allocator.create_uniform_resource("shape_uniform", shape_uniform)?;
+
+        // Create empty circle storage buffer
+        let empty_circles = vec![CircleData::default(); MAX_CIRCLES];
+        let circle_storage_buffer = gpu_allocator.create_storage_buffer(
+            "circle_storage",
+            &empty_circles
+        )?;
+
+        let shape_shader = gpu_allocator.create_shape_shader(
+            "shape_shader",
+            include_str!("shape_shader.wgsl"),
+            shape_uniform_resource,
+            &circle_storage_buffer,
+        );
+
+        // Create a reference to the shape texture for the image shader
+        let shape_texture_for_image = gpu_allocator.create_texture_resource_from_existing(
+            "shape_texture_ref",
+            &shape_render_texture.resource
+        );
+
         let image_shader = gpu_allocator.create_shader(
             "image_shader",
             include_str!("image_shader.wgsl"),
-            vec![image_texture_resource],
+            vec![image_texture_resource, shape_texture_for_image],
             vec![feature_uniform_resource, draw_uniform_resource],
         );
 
@@ -70,6 +107,10 @@ impl<'a> AppState<'a> {
             mouse_state,
             shape_stack,
             image_shader,
+            shape_shader,
+            shape_render_texture,
+            shape_uniform,
+            circle_storage_buffer,
         })
     }
 
@@ -83,6 +124,8 @@ impl<'a> AppState<'a> {
             self.gpu_allocator.configure_surface(&new_size);
             self.feature_uniform
                 .update_window_dimensions(new_size.width, new_size.height);
+            self.shape_uniform
+                .update_dimensions(new_size.width, new_size.height);
         }
     }
 
@@ -210,21 +253,74 @@ impl<'a> AppState<'a> {
         true
     }
 
-    pub(crate) fn update(&self) {
-        // Make sure the uniform resource at index i correctly matches up to the uniform structure.
+    pub(crate) fn update(&mut self) {
+        // Update image shader uniforms
         let uniform_resources = &self.image_shader.uniform_resources;
-
         self.gpu_allocator
             .write_uniform_buffer(&uniform_resources[0].resource, self.feature_uniform);
-
         self.gpu_allocator
             .write_uniform_buffer(&uniform_resources[1].resource, self.draw_uniform);
+
+        // Update shape data
+        self.update_shape_data();
+    }
+
+    fn update_shape_data(&mut self) {
+        let shapes = self.shape_stack._shapes();
+        let num_circles = shapes.len().min(MAX_CIRCLES);
+
+        self.shape_uniform.set_num_circles(num_circles as u32);
+
+        // Update shape uniform
+        let shape_uniform_resources = &self.shape_shader.uniform_resources;
+        self.gpu_allocator
+            .write_uniform_buffer(&shape_uniform_resources[0].resource, self.shape_uniform);
+
+        // Update circle storage buffer
+        let mut circle_data = vec![CircleData::default(); MAX_CIRCLES];
+        for (i, shape) in shapes.iter().take(MAX_CIRCLES).enumerate() {
+            circle_data[i] = CircleData::from(shape);
+        }
+
+        self.gpu_allocator
+            .write_storage_buffer(&self.circle_storage_buffer, &circle_data);
     }
 
     pub(crate) fn render(&self) -> Result<(), wgpu::SurfaceError> {
         let (output, view, mut encoder) = self.gpu_allocator.begin_frame()?;
 
-        // Image shader render pass
+        // First pass: Render shapes to shape texture
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("shape render pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.shape_render_texture.resource.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+
+            render_pass.set_pipeline(&self.shape_shader.render_pipeline);
+
+            // Set bind group for shape shader (uniform + storage buffer)
+            render_pass.set_bind_group(0, &self.shape_shader.uniform_resources[0].bind_group, &[]);
+
+            render_pass.set_vertex_buffer(0, self.gpu_allocator.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(
+                self.gpu_allocator.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint16,
+            );
+
+            render_pass.draw_indexed(0..self.gpu_allocator.num_indices(), 0, 0..1);
+        }
+
+        // Second pass: Render final image with shapes composited
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("content render pass"),
