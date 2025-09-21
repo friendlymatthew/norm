@@ -4,7 +4,7 @@ struct ShapeUniform {
     width: u32,
     height: u32,
     num_circles: u32,
-    _padding: u32,
+    selected_circle: u32, // Index of selected circle (0xFFFFFFFF = none)
 }
 
 struct CircleData {
@@ -68,6 +68,20 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
             // Alpha blend this circle over existing content
             color = mix(color, circle_color, alpha);
+        }
+
+        // If this circle is selected, draw a yellow outline
+        if i == shape_uniform.selected_circle {
+            let outline_thickness = 3.0;
+            let outline_distance = abs(distance_to_center - circle_radius_pixels);
+
+            if outline_distance <= outline_thickness {
+                let outline_alpha = 1.0 - smoothstep(0.0, outline_thickness, outline_distance);
+                let yellow_outline = vec4<f32>(1.0, 1.0, 0.0, outline_alpha);
+
+                // Blend the yellow outline over existing color
+                color = mix(color, yellow_outline, outline_alpha);
+            }
         }
     }
 

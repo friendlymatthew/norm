@@ -137,60 +137,102 @@ impl<'a> AppState<'a> {
             WindowEvent::MouseInput { state, button, .. } => {
                 if *button == MouseButton::Left {
                     let prev_state = self.mouse_state.pressed();
+                    self.mouse_state.set_pressed(matches!(state, ElementState::Pressed));
 
-                    self.mouse_state
-                        .set_pressed(matches!(state, ElementState::Pressed));
-
-                    if !draw_uniform.crosshair() {
-                        return true;
-                    }
-
-                    match (prev_state, self.mouse_state.pressed()) {
-                        (false, true) => {
-                            let (start_x, start_y) = self.mouse_state.position();
-
-                            dbg!("start drag", start_x, start_y);
-                            self.mouse_state.set_start_drag(Some((start_x, start_y)));
-                            draw_uniform.set_circle_center(start_x, start_y);
-                        }
-                        (true, false) => {
-                            let initial_drag_position = self.mouse_state.start_drag();
-
-                            if initial_drag_position.is_none() {
-                                panic!("Logic error occured. Mouse state once finished pressing doesn't have initial drag position set.");
+                    if draw_uniform.crosshair() {
+                        // Crosshair mode: Draw new circles
+                        match (prev_state, self.mouse_state.pressed()) {
+                            (false, true) => {
+                                let (start_x, start_y) = self.mouse_state.position();
+                                self.mouse_state.set_start_drag(Some((start_x, start_y)));
+                                draw_uniform.set_circle_center(start_x, start_y);
                             }
+                            (true, false) => {
+                                let initial_drag_position = self.mouse_state.start_drag();
+                                if initial_drag_position.is_none() {
+                                    panic!("Logic error occurred. Mouse state once finished pressing doesn't have initial drag position set.");
+                                }
 
-                            let (x, y) = initial_drag_position.unwrap();
-                            let (edge_x, edge_y) = self.mouse_state.position();
-                            let radius = compute_radius((x, y), (edge_x, edge_y));
+                                let (x, y) = initial_drag_position.unwrap();
+                                let (edge_x, edge_y) = self.mouse_state.position();
+                                let radius = compute_radius((x, y), (edge_x, edge_y));
 
-                            // Convert to normalized coordinates (0-1 range)
-                            let normalized_x = x / self.size.width as f32;
-                            let normalized_y = y / self.size.height as f32;
-                            let normalized_radius = radius / (self.size.width.min(self.size.height) as f32);
+                                // Convert to normalized coordinates (0-1 range)
+                                let normalized_x = x / self.size.width as f32;
+                                let normalized_y = y / self.size.height as f32;
+                                let normalized_radius = radius / (self.size.width.min(self.size.height) as f32);
 
-                            self.shape_stack.push(Shape::Circle {
-                                x: normalized_x,
-                                y: normalized_y,
-                                radius: normalized_radius
-                            });
+                                self.shape_stack.push(Shape::Circle {
+                                    x: normalized_x,
+                                    y: normalized_y,
+                                    radius: normalized_radius
+                                });
 
-                            // clear state
-                            self.mouse_state.set_start_drag(None);
-                            dbg!("stop drag");
-                            draw_uniform.set_circle_radius(0.0);
+                                // Clear state
+                                self.mouse_state.set_start_drag(None);
+                                draw_uniform.set_circle_radius(0.0);
+                            }
+                            _ => {}
                         }
-                        _ => {}
+                    } else {
+                        // Selection mode: Select and move circles
+                        match (prev_state, self.mouse_state.pressed()) {
+                            (false, true) => {
+                                // Mouse press - check if we clicked on a circle
+                                let (mouse_x, mouse_y) = self.mouse_state.position();
+                                let normalized_x = mouse_x / self.size.width as f32;
+                                let normalized_y = mouse_y / self.size.height as f32;
+
+                                if let Some(circle_index) = self.shape_stack.find_circle_at_point(normalized_x, normalized_y) {
+                                    // Found a circle - select it and start dragging
+                                    self.mouse_state.set_selected_circle(Some(circle_index));
+                                    self.mouse_state.set_dragging_circle(true);
+
+                                    // Calculate offset from circle center to mouse position
+                                    if let Some(Shape::Circle { x, y, .. }) = self.shape_stack._shapes().get(circle_index) {
+                                        let offset_x = normalized_x - x;
+                                        let offset_y = normalized_y - y;
+                                        self.mouse_state.set_drag_offset((offset_x, offset_y));
+                                    }
+                                } else {
+                                    // Clicked on empty space - deselect any selected circle
+                                    self.mouse_state.set_selected_circle(None);
+                                }
+                            }
+                            (true, false) => {
+                                // Mouse release - stop dragging
+                                self.mouse_state.set_dragging_circle(false);
+                            }
+                            _ => {}
+                        }
                     }
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let (x, y) = (position.x as f32, position.y as f32);
 
-                if let Some(center) = self.mouse_state.start_drag() {
-                    let radius = compute_radius(center, (x, y));
-                    dbg!("dragging: radius", radius);
-                    self.draw_uniform.set_circle_radius(radius);
+                if draw_uniform.crosshair() {
+                    // Crosshair mode: Update the preview circle radius
+                    if let Some(center) = self.mouse_state.start_drag() {
+                        let radius = compute_radius(center, (x, y));
+                        self.draw_uniform.set_circle_radius(radius);
+                    }
+                } else {
+                    // Selection mode: Handle circle dragging
+                    if self.mouse_state.dragging_circle() {
+                        if let Some(selected_index) = self.mouse_state.selected_circle() {
+                            let normalized_x = x / self.size.width as f32;
+                            let normalized_y = y / self.size.height as f32;
+
+                            // Apply the drag offset to maintain relative position
+                            let (offset_x, offset_y) = self.mouse_state.drag_offset();
+                            let new_x = normalized_x - offset_x;
+                            let new_y = normalized_y - offset_y;
+
+                            // Move the circle to the new position
+                            self.shape_stack.move_circle(selected_index, new_x, new_y);
+                        }
+                    }
                 }
 
                 self.mouse_state.update_position(x, y);
@@ -280,6 +322,7 @@ impl<'a> AppState<'a> {
         let num_circles = shapes.len().min(MAX_CIRCLES);
 
         self.shape_uniform.set_num_circles(num_circles as u32);
+        self.shape_uniform.set_selected_circle(self.mouse_state.selected_circle());
 
         // Update shape uniform
         let shape_uniform_resources = &self.shape_shader.uniform_resources;

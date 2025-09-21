@@ -6,7 +6,7 @@ pub struct ShapeUniform {
     width: u32,
     height: u32,
     num_circles: u32,
-    _padding: u32,
+    selected_circle: u32, // Index of selected circle (u32::MAX = none)
 }
 
 impl ShapeUniform {
@@ -15,7 +15,7 @@ impl ShapeUniform {
             width,
             height,
             num_circles: 0,
-            _padding: 0,
+            selected_circle: u32::MAX,
         }
     }
 
@@ -26,6 +26,10 @@ impl ShapeUniform {
 
     pub fn set_num_circles(&mut self, count: u32) {
         self.num_circles = count;
+    }
+
+    pub fn set_selected_circle(&mut self, selected: Option<usize>) {
+        self.selected_circle = selected.map(|i| i as u32).unwrap_or(u32::MAX);
     }
 }
 
