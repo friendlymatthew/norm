@@ -48,13 +48,26 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Render all circles
     for (var i = 0u; i < shape_uniform.num_circles; i = i + 1u) {
         let circle = circles[i];
-        let distance_to_center = distance(pixel_coords, vec2<f32>(circle.x, circle.y));
 
-        if distance_to_center <= circle.radius {
-            // Circle outline - make it 2 pixels thick
-            if distance_to_center >= circle.radius - 2.0 {
-                color = vec4<f32>(0.0, 1.0, 1.0, 1.0); // Cyan outline
-            }
+        // Convert normalized coordinates back to pixel coordinates
+        let circle_center_pixels = vec2<f32>(
+            circle.x * f32(shape_uniform.width),
+            circle.y * f32(shape_uniform.height)
+        );
+        let circle_radius_pixels = circle.radius * f32(min(shape_uniform.width, shape_uniform.height));
+
+        let distance_to_center = distance(pixel_coords, circle_center_pixels);
+
+        if distance_to_center <= circle_radius_pixels {
+            // Filled circle with anti-aliasing
+            let edge_softness = 1.0;
+            let alpha = 1.0 - smoothstep(circle_radius_pixels - edge_softness, circle_radius_pixels, distance_to_center);
+
+            // Cyan filled circle
+            let circle_color = vec4<f32>(0.0, 1.0, 1.0, alpha);
+
+            // Alpha blend this circle over existing content
+            color = mix(color, circle_color, alpha);
         }
     }
 

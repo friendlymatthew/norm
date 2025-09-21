@@ -163,7 +163,17 @@ impl<'a> AppState<'a> {
                             let (x, y) = initial_drag_position.unwrap();
                             let (edge_x, edge_y) = self.mouse_state.position();
                             let radius = compute_radius((x, y), (edge_x, edge_y));
-                            self.shape_stack.push(Shape::Circle { x, y, radius });
+
+                            // Convert to normalized coordinates (0-1 range)
+                            let normalized_x = x / self.size.width as f32;
+                            let normalized_y = y / self.size.height as f32;
+                            let normalized_radius = radius / (self.size.width.min(self.size.height) as f32);
+
+                            self.shape_stack.push(Shape::Circle {
+                                x: normalized_x,
+                                y: normalized_y,
+                                radius: normalized_radius
+                            });
 
                             // clear state
                             self.mouse_state.set_start_drag(None);
