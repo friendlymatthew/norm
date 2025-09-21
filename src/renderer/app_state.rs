@@ -297,6 +297,14 @@ impl<'a> AppState<'a> {
                 (KeyCode::KeyY, ElementState::Pressed) => {
                     feature_uniform.apply_transform(TransformAction::FlipY);
                 }
+                (KeyCode::Delete, ElementState::Pressed) | (KeyCode::Backspace, ElementState::Pressed) => {
+                    // Delete the selected circle
+                    if let Some(selected_index) = self.mouse_state.selected_circle() {
+                        self.shape_stack.remove_circle(selected_index);
+                        self.mouse_state.set_selected_circle(None);
+                        self.mouse_state.set_dragging_circle(false);
+                    }
+                }
                 _ => return false,
             },
             _ => return false,

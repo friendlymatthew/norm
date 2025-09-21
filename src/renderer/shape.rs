@@ -37,6 +37,13 @@ impl ShapeStack {
             *y = new_y;
         }
     }
+
+    // Remove a circle by index
+    pub fn remove_circle(&mut self, index: usize) {
+        if index < self.shapes.len() {
+            self.shapes.remove(index);
+        }
+    }
 }
 
 #[allow(dead_code)]
