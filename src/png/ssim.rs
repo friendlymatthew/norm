@@ -1,10 +1,7 @@
 #![allow(clippy::suboptimal_flops)]
 
 use crate::{
-    image::grammar::{
-        ColorType,
-        ImageExt,
-    },
+    image::grammar::{ColorType, ImageExt},
     png::grammar::Png,
 };
 use anyhow::ensure;

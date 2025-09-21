@@ -1,9 +1,5 @@
 use crate::{
-    image::grammar::{
-        Image,
-        ImageExt,
-        ImageKind,
-    },
+    image::grammar::{Image, ImageExt, ImageKind},
     jpeg::JpegDecoder,
     png::PngDecoder,
 };

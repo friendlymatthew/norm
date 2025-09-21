@@ -24,19 +24,19 @@ name = "iris"
 path = "src/main.rs"
 
 [[bin]]
-name = "iris-decode"
-path = "src/bin/decode.rs"
+name = "iris_decode_png"
+path = "src/bin/decode_png.rs"
 
 [[bin]]
-name = "iris-lato-glyphs"
+name = "iris_lato_glyphs"
 path = "src/bin/lato_glyphs.rs"
 
 [[bin]]
-name = "iris-ssim"
+name = "iris_ssim"
 path = "src/bin/ssim.rs"
 
 [[bin]]
-name = "iris-png-test-suite"
+name = "iris_png_test_suite"
 path = "src/bin/test_suite.rs"
 
 [lib]

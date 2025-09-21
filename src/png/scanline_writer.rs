@@ -1,7 +1,4 @@
-use crate::png::grammar::{
-    Filter,
-    ImageHeader,
-};
+use crate::png::grammar::{Filter, ImageHeader};
 use anyhow::Result;
 use std::io::Write;
 

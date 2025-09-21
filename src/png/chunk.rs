@@ -1,12 +1,6 @@
-use crate::png::{
-    grammar::ImageHeader,
-    scanline_writer::ScanlineWriter,
-};
+use crate::png::{grammar::ImageHeader, scanline_writer::ScanlineWriter};
 use anyhow::Result;
-use flate2::{
-    write::ZlibEncoder,
-    Compression,
-};
+use flate2::{write::ZlibEncoder, Compression};
 use std::io::Write;
 
 pub trait PngChunk {

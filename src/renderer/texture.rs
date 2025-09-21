@@ -1,23 +1,9 @@
 use crate::image::grammar::Image;
 use anyhow::*;
 use wgpu::{
-    AddressMode,
-    Device,
-    Extent3d,
-    FilterMode,
-    ImageCopyTexture,
-    ImageDataLayout,
-    Origin3d,
-    Queue,
-    Sampler,
-    SamplerDescriptor,
-    TextureAspect,
-    TextureDescriptor,
-    TextureDimension,
-    TextureFormat,
-    TextureUsages,
-    TextureView,
-    TextureViewDescriptor,
+    AddressMode, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
+    Sampler, SamplerDescriptor, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureUsages, TextureView, TextureViewDescriptor,
 };
 
 #[derive(Debug)]

@@ -27,17 +27,17 @@ cargo r --release ./tests/obama.png
 ```bash
 
 # Profile the decoder
-./profile_decoder.sh ./tests/reagan.png
+cargo b --release && samply record ./target/release/iris_decode_png ./tests/reagan.png
 
 # Run ad-hoc benchmarks
-cargo r --release --bin iris-decode --features time ./tests/Periodic_table_large.png
+cargo r --release --bin iris_decode_png --features time ./tests/Periodic_table_large.png
 
 # Parse and render glyphs from the lato font file
 # See the generated `glyph_playground` directory.
-cargo r --bin iris-lato-glyphs hfkdp!
+cargo r --bin iris_lato_glyphs hfkdp!
 
 # Run the PNG test suite
-cargo r --bin iris-png-test-suite
+cargo r --bin iris_png_test_suite
 
 # Fuzz the decoder
 ./fuzz.sh

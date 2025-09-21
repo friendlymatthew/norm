@@ -1,14 +1,8 @@
-use crate::image::grammar::{
-    ColorType,
-    ImageExt,
-};
+use crate::image::grammar::{ColorType, ImageExt};
 use anyhow::bail;
 use std::{
     borrow::Cow,
-    ops::{
-        Range,
-        RangeInclusive,
-    },
+    ops::{Range, RangeInclusive},
 };
 
 pub type Marker = u16;

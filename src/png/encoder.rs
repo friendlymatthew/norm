@@ -1,10 +1,5 @@
 use crate::png::{
-    chunk::{
-        IDATChunk,
-        IENDChunk,
-        IHDRChunk,
-        PngChunk,
-    },
+    chunk::{IDATChunk, IENDChunk, IHDRChunk, PngChunk},
     grammar::Png,
 };
 use anyhow::Result;

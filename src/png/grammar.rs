@@ -1,20 +1,9 @@
-use crate::image::grammar::{
-    ColorType,
-    ImageExt,
-};
-use anyhow::{
-    bail,
-    Result,
-};
+use crate::image::grammar::{ColorType, ImageExt};
+use anyhow::{bail, Result};
 #[cfg(test)]
 use std::io::Write;
 use std::{
-    borrow::Cow,
-    collections::BTreeMap,
-    fs::File,
-    io::Read,
-    path::PathBuf,
-    slice::ChunksExact,
+    borrow::Cow, collections::BTreeMap, fs::File, io::Read, path::PathBuf, slice::ChunksExact,
 };
 
 #[derive(Debug)]

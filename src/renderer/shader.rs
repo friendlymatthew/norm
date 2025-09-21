@@ -1,8 +1,5 @@
 use crate::renderer::Texture;
-use wgpu::{
-    BindGroup,
-    BindGroupLayout,
-};
+use wgpu::{BindGroup, BindGroupLayout};
 
 #[derive(Debug)]
 pub struct ShaderResourceInner<T> {

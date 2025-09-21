@@ -1,12 +1,6 @@
-use anyhow::{
-    anyhow,
-    Result,
-};
+use anyhow::{anyhow, Result};
 use iris::{
-    image::{
-        grammar::ImageKind,
-        ImageReader,
-    },
+    image::{grammar::ImageKind, ImageReader},
     renderer,
 };
 use pollster::block_on;

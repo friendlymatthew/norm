@@ -1,7 +1,4 @@
-use crate::font::grammar::{
-    Glyph,
-    TrueTypeFontFile,
-};
+use crate::font::grammar::{Glyph, TrueTypeFontFile};
 
 #[derive(Debug)]
 pub struct TrueTypeFontShaper<'a> {
