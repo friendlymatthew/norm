@@ -1,10 +1,9 @@
 use crate::{
-    impl_read_for_datatype,
+    impl_read_for_datatype, impl_read_slice,
     jpeg::grammar::{
         Component, EncodingProcess, HuffmanTable, Jpeg, Marker, QuantizationTable, StartOfFrame,
         StartOfScan, JFIF,
     },
-    read_slice,
 };
 
 use anyhow::{anyhow, ensure, Result};
@@ -203,5 +202,5 @@ impl<'a> JpegDecoder<'a> {
     impl_read_for_datatype!(read_u8, u8);
     impl_read_for_datatype!(read_u16, u16);
     impl_read_for_datatype!(read_marker, Marker);
-    read_slice!();
+    impl_read_slice!();
 }

@@ -11,7 +11,7 @@ macro_rules! impl_read_for_datatype {
 }
 
 #[macro_export]
-macro_rules! read_slice {
+macro_rules! impl_read_slice {
     () => {
         #[allow(dead_code)]
         fn read_vec<T>(

@@ -8,7 +8,7 @@ use super::grammar::{
 };
 use crate::{
     font::grammar::{IndexToLocFormat, Platform, PlatformDouble},
-    impl_read_for_datatype, read_slice,
+    impl_read_for_datatype, impl_read_slice,
 };
 use anyhow::{bail, ensure, Result};
 use std::collections::BTreeMap;
@@ -625,7 +625,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
     // impl_read_for_datatype!(read_short_frac, ShortFrac, U16_BYTES);
 
-    read_slice!();
+    impl_read_slice!();
     impl_read_for_datatype!(read_fixed, Fixed);
     impl_read_for_datatype!(read_fword, FWord);
     impl_read_for_datatype!(read_unsigned_fword, UnsignedFWord);

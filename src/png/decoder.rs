@@ -2,13 +2,12 @@
 use crate::util::event_log::{log_event, Event};
 use crate::{
     image::grammar::ColorType,
-    impl_read_for_datatype,
+    impl_read_for_datatype, impl_read_slice,
     png::{
         crc32::compute_crc,
         grammar::{Chunk, ImageHeader, Png},
         scanline_reader::ScanlineReader,
     },
-    read_slice,
 };
 use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
@@ -230,7 +229,7 @@ impl<'a> PngDecoder<'a> {
 
     impl_read_for_datatype!(read_u8, u8);
     impl_read_for_datatype!(read_u32, u32);
-    read_slice!();
+    impl_read_slice!();
 
     fn read_slice_until(&mut self, stop: u8) -> Result<&'a [u8]> {
         let cursor_start = self.cursor;
