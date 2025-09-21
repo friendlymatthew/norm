@@ -1,58 +1,16 @@
 use super::grammar::{
-    CMapFormat0,
-    CMapFormat12,
-    CMapFormat4,
-    CMapIndividualGroup,
-    CMapSubtable,
-    CMapTable,
-    ComponentGlyph,
-    ComponentGlyphArgument,
-    ComponentGlyphFlag,
-    ComponentGlyphTransformation,
-    CompoundGlyph,
-    F2Dot14,
-    FWord,
-    Fixed,
-    FontDirectory,
-    Glyph,
-    GlyphData,
-    GlyphDescription,
-    GlyphTable,
-    HHeaTable,
-    HMtxTable,
-    HeadTable,
-    LongDateTime,
-    LongHorizontalMetric,
-    MaxPTable,
-    OffsetSubTable,
-    ScalarType,
-    SimpleGlyph,
-    SimpleGlyphFlag,
-    TableRecord,
-    TableTag,
-    TrueTypeFontFile,
-    UnsignedFWord,
+    CMapFormat0, CMapFormat12, CMapFormat4, CMapIndividualGroup, CMapSubtable, CMapTable,
+    ComponentGlyph, ComponentGlyphArgument, ComponentGlyphFlag, ComponentGlyphTransformation,
+    CompoundGlyph, F2Dot14, FWord, Fixed, FontDirectory, Glyph, GlyphData, GlyphDescription,
+    GlyphTable, HHeaTable, HMtxTable, HeadTable, LongDateTime, LongHorizontalMetric, MaxPTable,
+    OffsetSubTable, ScalarType, SimpleGlyph, SimpleGlyphFlag, TableRecord, TableTag,
+    TrueTypeFontFile, UnsignedFWord,
 };
 use crate::{
-    eof,
-    font::grammar::{
-        IndexToLocFormat,
-        Platform,
-        PlatformDouble,
-    },
-    read,
-    util::read_bytes::{
-        U16_BYTES,
-        U32_BYTES,
-        U64_BYTES,
-        U8_BYTES,
-    },
+    font::grammar::{IndexToLocFormat, Platform, PlatformDouble},
+    impl_read_for_datatype, read_slice,
 };
-use anyhow::{
-    bail,
-    ensure,
-    Result,
-};
+use anyhow::{bail, ensure, Result};
 use std::collections::BTreeMap;
 
 #[derive(Debug)]
@@ -157,7 +115,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
     fn parse_font_directory(&mut self) -> Result<FontDirectory<'a>> {
         let offset_sub_table = OffsetSubTable {
-            scalar_type: ScalarType::try_from(self.read_slice::<U32_BYTES>()?)?,
+            scalar_type: ScalarType::try_from(self.read_slice(4)?)?,
             num_tables: self.read_u16()?,
             search_range: self.read_u16()?,
             entry_selector: self.read_u16()?,
@@ -168,7 +126,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
         for _ in 0..offset_sub_table.num_tables as usize {
             // todo: what does a checksum validation look like?
-            let table_tag = TableTag::try_from(self.read_slice::<U32_BYTES>()?)?;
+            let table_tag = TableTag::try_from(self.read_slice(4)?)?;
 
             ensure!(
                 !table_directory.contains_key(&table_tag),
@@ -653,55 +611,32 @@ impl<'a> TrueTypeFontParser<'a> {
         Ok(CompoundGlyph { components })
     }
 
-    eof!();
-
     fn jump_to_table_record(&mut self, table_record: &TableRecord) -> Result<()> {
         let (offset, length) = (table_record.offset as usize, table_record.length as usize);
         self.jump(offset, length)
     }
 
     fn jump(&mut self, offset: usize, length: usize) -> Result<()> {
-        ensure!(offset < self.data.len(), "Offset is out of bounds.");
         self.cursor = offset;
-        self.eof(length)?;
+        ensure!(self.cursor + length < self.data.len(), "oob");
 
         Ok(())
     }
 
-    fn read_vec<T>(
-        &mut self,
-        capacity: usize,
-        read_fn: impl Fn(&mut Self) -> Result<T>,
-    ) -> Result<Vec<T>> {
-        let mut list = Vec::with_capacity(capacity);
+    // impl_read_for_datatype!(read_short_frac, ShortFrac, U16_BYTES);
 
-        for _ in 0..capacity {
-            list.push(read_fn(self)?)
-        }
-
-        Ok(list)
-    }
-
-    fn read_slice<const N: usize>(&mut self) -> Result<&'a [u8; N]> {
-        self.eof(N)?;
-        let bs = &self.data[self.cursor..self.cursor + N];
-        self.cursor += N;
-
-        Ok(bs.try_into()?)
-    }
-
-    // read!(read_short_frac, ShortFrac, U16_BYTES);
-    read!(read_fixed, Fixed, U32_BYTES);
-    read!(read_fword, FWord, U16_BYTES);
-    read!(read_unsigned_fword, UnsignedFWord, U16_BYTES);
-    read!(read_f2dot14, F2Dot14, U16_BYTES);
-    read!(read_long_date_time, LongDateTime, U64_BYTES);
-    read!(read_i8, i8, U8_BYTES);
-    read!(read_u8, u8, U8_BYTES);
-    read!(read_u16, u16, U16_BYTES);
-    read!(read_u32, u32, U32_BYTES);
-    read!(read_i16, i16, U16_BYTES);
-    read!(read_i64, i64, U64_BYTES);
+    read_slice!();
+    impl_read_for_datatype!(read_fixed, Fixed);
+    impl_read_for_datatype!(read_fword, FWord);
+    impl_read_for_datatype!(read_unsigned_fword, UnsignedFWord);
+    impl_read_for_datatype!(read_f2dot14, F2Dot14);
+    impl_read_for_datatype!(read_long_date_time, LongDateTime);
+    impl_read_for_datatype!(read_i8, i8);
+    impl_read_for_datatype!(read_u8, u8);
+    impl_read_for_datatype!(read_u16, u16);
+    impl_read_for_datatype!(read_u32, u32);
+    impl_read_for_datatype!(read_i16, i16);
+    impl_read_for_datatype!(read_i64, i64);
 }
 
 #[cfg(test)]

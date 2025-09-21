@@ -1,13 +1,4 @@
-use crate::util::read_bytes::{
-    U16_BYTES,
-    U8_BYTES,
-};
-use anyhow::{
-    anyhow,
-    bail,
-    ensure,
-    Result,
-};
+use anyhow::{anyhow, bail, ensure, Result};
 use std::collections::BTreeMap;
 
 pub type ShortFrac = i16;
@@ -50,10 +41,10 @@ pub enum ScalarType {
     OpenType,
 }
 
-impl TryFrom<&[u8; 4]> for ScalarType {
+impl TryFrom<&[u8]> for ScalarType {
     type Error = anyhow::Error;
 
-    fn try_from(value: &[u8; 4]) -> Result<Self, Self::Error> {
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let scalar_type = match value {
             b"true" | b"\x00\x01\x00\x00" => Self::TrueType,
             b"typ1" => Self::PostScript,
@@ -94,13 +85,13 @@ pub enum TableTag<'a> {
     OS2,
     Prep,
 
-    Foreign(&'a [u8; 4]),
+    Foreign(&'a [u8]),
 }
 
-impl<'a> TryFrom<&'a [u8; 4]> for TableTag<'a> {
+impl<'a> TryFrom<&'a [u8]> for TableTag<'a> {
     type Error = anyhow::Error;
 
-    fn try_from(value: &'a [u8; 4]) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         let tag = match value {
             b"cmap" => Self::CMap,
             b"glyf" => Self::Glyf,
@@ -383,8 +374,8 @@ impl TryFrom<i16> for IndexToLocFormat {
 impl IndexToLocFormat {
     pub const fn size(&self) -> usize {
         match self {
-            Self::Short => U16_BYTES,
-            Self::Long => U8_BYTES,
+            Self::Short => std::mem::size_of::<u16>(),
+            Self::Long => std::mem::size_of::<u8>(),
         }
     }
 }

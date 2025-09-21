@@ -1,11 +1,12 @@
 use crate::{
+    impl_read_for_datatype,
     jpeg::grammar::{
         Component, EncodingProcess, HuffmanTable, Jpeg, Marker, QuantizationTable, StartOfFrame,
         StartOfScan, JFIF,
     },
-    read, read_slice,
-    util::read_bytes::{U16_BYTES, U8_BYTES},
+    read_slice,
 };
+
 use anyhow::{anyhow, ensure, Result};
 use std::ops::{Range, RangeInclusive};
 
@@ -79,7 +80,7 @@ impl<'a> JpegDecoder<'a> {
         let offset = self.cursor;
         let length = self.read_u16()?;
 
-        ensure!(self.read_fixed::<5>()? == b"JFIF\0");
+        ensure!(self.read_slice(5)? == b"JFIF\0");
 
         self.cursor = offset + length as usize;
 
@@ -188,7 +189,7 @@ impl<'a> JpegDecoder<'a> {
         let range = Range {
             start: self.cursor,
             end: {
-                while self.data[self.cursor..self.cursor + U16_BYTES] != [0xFF, 0xD9] {
+                while self.peek_slice(2)? != [0xFF, 0xD9] {
                     self.cursor += 1;
                 }
 
@@ -199,8 +200,8 @@ impl<'a> JpegDecoder<'a> {
         Ok(range)
     }
 
-    read!(read_u8, u8, U8_BYTES);
-    read!(read_u16, u16, U16_BYTES);
-    read!(read_marker, Marker, U16_BYTES);
+    impl_read_for_datatype!(read_u8, u8);
+    impl_read_for_datatype!(read_u16, u16);
+    impl_read_for_datatype!(read_marker, Marker);
     read_slice!();
 }

@@ -1,15 +1,14 @@
 #[cfg(feature = "time")]
 use crate::util::event_log::{log_event, Event};
 use crate::{
-    eof,
     image::grammar::ColorType,
+    impl_read_for_datatype,
     png::{
         crc32::compute_crc,
         grammar::{Chunk, ImageHeader, Png},
         scanline_reader::ScanlineReader,
     },
-    read, read_slice,
-    util::read_bytes::{U32_BYTES, U8_BYTES},
+    read_slice,
 };
 use anyhow::{bail, ensure, Result};
 use flate2::read::ZlibDecoder;
@@ -224,15 +223,13 @@ impl<'a> PngDecoder<'a> {
     }
 
     fn skip_crc(&mut self) -> Result<()> {
-        self.eof(4)?;
-        self.cursor += 4;
+        let _ = self.read_slice(4)?;
 
         Ok(())
     }
 
-    eof!();
-    read!(read_u8, u8, U8_BYTES);
-    read!(read_u32, u32, U32_BYTES);
+    impl_read_for_datatype!(read_u8, u8);
+    impl_read_for_datatype!(read_u32, u32);
     read_slice!();
 
     fn read_slice_until(&mut self, stop: u8) -> Result<&'a [u8]> {
