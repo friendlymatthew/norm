@@ -50,7 +50,7 @@ macro_rules! impl_read_slice {
         }
 
         #[allow(dead_code)]
-        fn peek_slice(&mut self, len: usize) -> Result<&'a [u8]> {
+        fn peek_slice(&self, len: usize) -> Result<&'a [u8]> {
             self.data
                 .get(self.cursor..self.cursor + len)
                 .ok_or_else(|| anyhow::anyhow!("oob"))

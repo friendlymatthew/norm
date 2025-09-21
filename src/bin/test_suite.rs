@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use comfy_table::{Attribute, Cell, Color, Table};
 use iris::{
     png::{grammar::Png, PngDecoder},
-    util::test_file_parser::{parse_test_file, PNGSuiteTestCase},
+    test_file_parser::{parse_test_file, PNGSuiteTestCase},
 };
 use std::{ffi::OsStr, fmt, fs, panic};
 

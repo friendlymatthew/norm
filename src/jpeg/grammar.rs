@@ -1,11 +1,16 @@
 use crate::image::grammar::{ColorType, ImageExt};
 use anyhow::bail;
-use std::{
-    borrow::Cow,
-    ops::{Range, RangeInclusive},
-};
+use std::{borrow::Cow, ops::RangeInclusive};
 
 pub type Marker = u16;
+
+#[derive(Debug)]
+pub struct ApplicationHeader {
+    pub version: (u8, u8),
+    pub unit: u8,
+    pub density: (u16, u16),
+    pub thumbnail: (u8, u8),
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum Precision {
@@ -16,9 +21,9 @@ pub enum Precision {
 impl From<bool> for Precision {
     fn from(value: bool) -> Self {
         if value {
-            Precision::Sixteen
+            Self::Sixteen
         } else {
-            Precision::Eight
+            Self::Eight
         }
     }
 }
@@ -42,11 +47,30 @@ impl QuantizationTable {
     }
 }
 
+pub enum HuffmanTableClass {
+    AC,
+    DC,
+}
+
 #[derive(Debug)]
 pub struct HuffmanTable {
     pub flag: u8,
-    pub code_lengths: Range<usize>,
-    pub symbols: Range<usize>,
+    pub code_lengths: [u8; 16],
+    pub values: Vec<u8>,
+}
+
+impl HuffmanTable {
+    pub const fn table_class(&self) -> HuffmanTableClass {
+        if (self.flag >> 4) == 1 {
+            return HuffmanTableClass::AC;
+        }
+
+        HuffmanTableClass::DC
+    }
+
+    pub const fn table_identifier(&self) -> u8 {
+        self.flag & 0b1111
+    }
 }
 
 #[derive(Debug)]
@@ -103,12 +127,13 @@ pub struct StartOfScan {
 }
 
 #[derive(Debug)]
-pub struct JFIF {
+pub struct JFIF<'a> {
+    pub application_header: ApplicationHeader,
     pub quantization_tables: Vec<QuantizationTable>,
     pub huffman_tables: Vec<HuffmanTable>,
     pub start_of_frame: StartOfFrame,
     pub start_of_scan: StartOfScan,
-    pub image_data: Range<usize>,
+    pub image_data: &'a [u8],
 }
 
 #[derive(Debug)]

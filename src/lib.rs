@@ -9,3 +9,7 @@ pub mod jpeg;
 pub mod png;
 pub mod renderer;
 pub mod util;
+
+pub mod event_log;
+pub(crate) mod impl_read;
+pub mod test_file_parser;

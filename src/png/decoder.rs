@@ -243,7 +243,7 @@ impl<'a> PngDecoder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{image::grammar::ImageExt, util::test_file_parser::parse_test_file};
+    use crate::{image::grammar::ImageExt, test_file_parser::parse_test_file};
     use anyhow::anyhow;
     use image::ImageReader;
     use pretty_assertions::assert_eq;

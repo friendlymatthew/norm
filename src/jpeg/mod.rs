@@ -1,5 +1,4 @@
-pub use decoder::*;
+mod decoder;
 
 pub mod grammar;
-
-mod decoder;
+pub use decoder::*;
