@@ -7,24 +7,34 @@ use std::{
 
 pub type Marker = u16;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Precision {
-    Eight,
-    Sixteen,
+    Eight = 1,
+    Sixteen = 2,
+}
+
+impl From<bool> for Precision {
+    fn from(value: bool) -> Self {
+        if value {
+            Precision::Sixteen
+        } else {
+            Precision::Eight
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct QuantizationTable {
     pub flag: u8,
-    pub element_range: Range<usize>,
+    pub table_elements: [u16; QuantizationTable::NUM_ELEMENTS],
 }
 
 impl QuantizationTable {
-    pub const fn precision(&self) -> Precision {
-        match self.flag >> 4 == 1 {
-            false => Precision::Eight,
-            true => Precision::Sixteen,
-        }
+    // The number of elements per quantization table
+    pub const NUM_ELEMENTS: usize = 64;
+
+    pub fn precision(&self) -> Precision {
+        (self.flag >> 4 == 1).into()
     }
 
     pub const fn table_identifier(&self) -> u8 {

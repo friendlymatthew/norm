@@ -1,8 +1,8 @@
 use crate::{
     impl_read_for_datatype, impl_read_slice,
     jpeg::grammar::{
-        Component, EncodingProcess, HuffmanTable, Jpeg, Marker, QuantizationTable, StartOfFrame,
-        StartOfScan, JFIF,
+        Component, EncodingProcess, HuffmanTable, Jpeg, Marker, Precision, QuantizationTable,
+        StartOfFrame, StartOfScan, JFIF,
     },
 };
 
@@ -22,6 +22,8 @@ impl<'a> JpegDecoder<'a> {
 
     pub fn decode(&mut self) -> Result<Jpeg> {
         let _jfif = self.parse_jfif()?;
+
+        dbg!(_jfif);
 
         todo!();
     }
@@ -92,17 +94,23 @@ impl<'a> JpegDecoder<'a> {
 
         let flag = self.read_u8()?;
 
-        let quantization_table = QuantizationTable {
-            flag,
-            element_range: Range {
-                start: self.cursor,
-                end: offset + length,
-            },
+        let precision = Precision::from((flag >> 4) == 1);
+
+        ensure!(
+            self.cursor + (precision as usize * QuantizationTable::NUM_ELEMENTS) == offset + length
+        );
+
+        let table_elements = match precision {
+            Precision::Eight => {
+                self.read_fixed_array::<64, _>(|this| this.read_u8().map(|b| b as u16))?
+            }
+            Precision::Sixteen => self.read_fixed_array::<64, _>(Self::read_u16)?,
         };
 
-        self.cursor = offset + length;
-
-        Ok(quantization_table)
+        Ok(QuantizationTable {
+            flag,
+            table_elements,
+        })
     }
 
     fn parse_start_of_frame(&mut self, start_of_frame: u8) -> Result<StartOfFrame> {
@@ -204,3 +212,15 @@ impl<'a> JpegDecoder<'a> {
     impl_read_for_datatype!(read_marker, Marker);
     impl_read_slice!();
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+
+//     #[test]
+//     fn test_decode_taxi_zone_map_manhattan() {
+//         let data = std::fs::read("./tests/taxi_zone_map_manhattan.jpg").unwrap();
+
+//         let _ = JpegDecoder::new(&data).decode().unwrap();
+//     }
+// }

@@ -24,6 +24,20 @@ macro_rules! impl_read_slice {
                 .collect::<Result<Vec<_>>>()
         }
 
+        #[allow(dead_code)]
+        fn read_fixed_array<const N: usize, T: Default + Copy>(
+            &mut self,
+            read_fn: impl Fn(&mut Self) -> Result<T>,
+        ) -> Result<[T; N]> {
+            let mut buf = [T::default(); N];
+
+            for i in 0..N {
+                buf[i] = read_fn(self)?;
+            }
+
+            Ok(buf)
+        }
+
         fn read_slice(&mut self, len: usize) -> Result<&'a [u8]> {
             let slice = self
                 .data
