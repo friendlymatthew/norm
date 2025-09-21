@@ -150,6 +150,20 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
     var viewport_resolution = 1.0 / vec2(f32(feature_uniform.width), f32(feature_uniform.height));
 
+    if feature_uniform.gamma != 0u {
+        // todo! modify the pixels to account for gamma
+        // see https://www.w3.org/TR/2003/REC-PNG-20031110/#13Decoder-gamma-handling
+        let gamma_value = f32(feature_uniform.gamma) / 100000.0;
+        let inv_gamma = 1.0 / gamma_value;
+
+        pixels = vec4<f32>(
+            pow(pixels.r, inv_gamma),
+            pow(pixels.g, inv_gamma),
+            pow(pixels.b, inv_gamma),
+            pixels.a 
+        );
+    }
+
     if feature_uniform.edge_detect == 1u {
         pixels = detect_edge(in.tex_coords, viewport_resolution);
     }
@@ -160,11 +174,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     if feature_uniform.blur == 1u {
         pixels = gaussian_blur(in.tex_coords, f32(feature_uniform.radius), viewport_resolution);
-    }
-
-    if feature_uniform.gamma != 0u {
-        // todo! modify the pixels to account for gamma
-        // see https://www.w3.org/TR/2003/REC-PNG-20031110/#13Decoder-gamma-handling
     }
 
     if feature_uniform.grayscale == 1u {
