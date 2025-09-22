@@ -19,12 +19,12 @@ impl ShapeUniform {
         }
     }
 
-    pub fn update_dimensions(&mut self, width: u32, height: u32) {
+    pub const fn update_dimensions(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
     }
 
-    pub fn set_num_circles(&mut self, count: u32) {
+    pub const fn set_num_circles(&mut self, count: u32) {
         self.num_circles = count;
     }
 

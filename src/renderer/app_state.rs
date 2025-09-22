@@ -57,11 +57,8 @@ impl<'a> AppState<'a> {
             gpu_allocator.create_uniform_resource("draw_uniform", draw_uniform)?;
 
         // Create shape render texture
-        let shape_render_texture = gpu_allocator.create_render_texture(
-            "shape_texture",
-            size.width,
-            size.height
-        );
+        let shape_render_texture =
+            gpu_allocator.create_render_texture("shape_texture", size.width, size.height);
 
         // Create shape uniform and storage buffer
         let shape_uniform = ShapeUniform::new(size.width, size.height);
@@ -70,10 +67,8 @@ impl<'a> AppState<'a> {
 
         // Create empty circle storage buffer
         let empty_circles = vec![CircleData::default(); MAX_CIRCLES];
-        let circle_storage_buffer = gpu_allocator.create_storage_buffer(
-            "circle_storage",
-            &empty_circles
-        )?;
+        let circle_storage_buffer =
+            gpu_allocator.create_storage_buffer("circle_storage", &empty_circles)?;
 
         let shape_shader = gpu_allocator.create_shape_shader(
             "shape_shader",
@@ -85,7 +80,7 @@ impl<'a> AppState<'a> {
         // Create a reference to the shape texture for the image shader
         let shape_texture_for_image = gpu_allocator.create_texture_resource_from_existing(
             "shape_texture_ref",
-            &shape_render_texture.resource
+            &shape_render_texture.resource,
         );
 
         let image_shader = gpu_allocator.create_shader(
@@ -137,7 +132,8 @@ impl<'a> AppState<'a> {
             WindowEvent::MouseInput { state, button, .. } => {
                 if *button == MouseButton::Left {
                     let prev_state = self.mouse_state.pressed();
-                    self.mouse_state.set_pressed(matches!(state, ElementState::Pressed));
+                    self.mouse_state
+                        .set_pressed(matches!(state, ElementState::Pressed));
 
                     if draw_uniform.crosshair() {
                         // Crosshair mode: Draw new circles
@@ -160,12 +156,13 @@ impl<'a> AppState<'a> {
                                 // Convert to normalized coordinates (0-1 range)
                                 let normalized_x = x / self.size.width as f32;
                                 let normalized_y = y / self.size.height as f32;
-                                let normalized_radius = radius / (self.size.width.min(self.size.height) as f32);
+                                let normalized_radius =
+                                    radius / (self.size.width.min(self.size.height) as f32);
 
                                 self.shape_stack.push(Shape::Circle {
                                     x: normalized_x,
                                     y: normalized_y,
-                                    radius: normalized_radius
+                                    radius: normalized_radius,
                                 });
 
                                 // Clear state
@@ -183,13 +180,20 @@ impl<'a> AppState<'a> {
                                 let normalized_x = mouse_x / self.size.width as f32;
                                 let normalized_y = mouse_y / self.size.height as f32;
 
-                                if let Some(circle_index) = self.shape_stack.find_circle_at_point(normalized_x, normalized_y) {
+                                if let Some(circle_index) = self.shape_stack.find_shape_at_point(
+                                    normalized_x,
+                                    normalized_y,
+                                    self.size.width,
+                                    self.size.height,
+                                ) {
                                     // Found a circle - select it and start dragging
                                     self.mouse_state.set_selected_circle(Some(circle_index));
                                     self.mouse_state.set_dragging_circle(true);
 
                                     // Calculate offset from circle center to mouse position
-                                    if let Some(Shape::Circle { x, y, .. }) = self.shape_stack._shapes().get(circle_index) {
+                                    if let Some(Shape::Circle { x, y, .. }) =
+                                        self.shape_stack.shapes().get(circle_index)
+                                    {
                                         let offset_x = normalized_x - x;
                                         let offset_y = normalized_y - y;
                                         self.mouse_state.set_drag_offset((offset_x, offset_y));
@@ -297,7 +301,8 @@ impl<'a> AppState<'a> {
                 (KeyCode::KeyY, ElementState::Pressed) => {
                     feature_uniform.apply_transform(TransformAction::FlipY);
                 }
-                (KeyCode::Delete, ElementState::Pressed) | (KeyCode::Backspace, ElementState::Pressed) => {
+                (KeyCode::Delete, ElementState::Pressed)
+                | (KeyCode::Backspace, ElementState::Pressed) => {
                     // Delete the selected circle
                     if let Some(selected_index) = self.mouse_state.selected_circle() {
                         self.shape_stack.remove_circle(selected_index);
@@ -326,11 +331,12 @@ impl<'a> AppState<'a> {
     }
 
     fn update_shape_data(&mut self) {
-        let shapes = self.shape_stack._shapes();
+        let shapes = self.shape_stack.shapes();
         let num_circles = shapes.len().min(MAX_CIRCLES);
 
         self.shape_uniform.set_num_circles(num_circles as u32);
-        self.shape_uniform.set_selected_circle(self.mouse_state.selected_circle());
+        self.shape_uniform
+            .set_selected_circle(self.mouse_state.selected_circle());
 
         // Update shape uniform
         let shape_uniform_resources = &self.shape_shader.uniform_resources;

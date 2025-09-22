@@ -12,21 +12,54 @@ impl ShapeStack {
         self.shapes.push(shape);
     }
 
-    pub fn _shapes(&self) -> &[Shape] {
+    pub fn shapes(&self) -> &[Shape] {
         &self.shapes
     }
 
     // Find the topmost circle that contains the given point (in normalized coordinates)
-    pub fn find_circle_at_point(&self, x: f32, y: f32) -> Option<usize> {
-        // Search from the end (topmost/most recent) to find the top circle
-        for (index, shape) in self.shapes.iter().enumerate().rev() {
-            if let Shape::Circle { x: cx, y: cy, radius } = shape {
-                let distance = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
-                if distance <= *radius {
-                    return Some(index);
+    // Pushes the selected shape to the top of the stack
+    pub fn find_shape_at_point(
+        &mut self,
+        x: f32,
+        y: f32,
+        window_width: u32,
+        window_height: u32,
+    ) -> Option<usize> {
+        let top = self
+            .shapes
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(i, s)| match s {
+                Shape::Circle {
+                    x: cx,
+                    y: cy,
+                    radius,
+                } => {
+                    // Convert normalized coordinates to pixel coordinates for precise calculation
+                    let pixel_x = x * window_width as f32;
+                    let pixel_y = y * window_height as f32;
+                    let circle_pixel_x = cx * window_width as f32;
+                    let circle_pixel_y = cy * window_height as f32;
+                    let circle_pixel_radius = radius * (window_width.min(window_height) as f32);
+
+                    let distance = (pixel_x - circle_pixel_x).hypot(pixel_y - circle_pixel_y);
+
+                    if distance <= circle_pixel_radius {
+                        return Some(i);
+                    }
+
+                    None
                 }
-            }
+            });
+
+        if let Some(i) = top {
+            let selected = self.shapes.remove(i);
+            self.shapes.push(selected);
+
+            return Some(self.shapes.len() - 1);
         }
+
         None
     }
 
