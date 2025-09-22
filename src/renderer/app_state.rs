@@ -6,7 +6,7 @@ use crate::{
         gpu_state::GpuResourceAllocator,
         mouse_state::MouseState,
         shader::{Shader, TextureResource},
-        shape::{compute_radius, Shape, ShapeStack},
+        shape::{compute_distance, RevisionStack, Shape},
         shape_uniform::{CircleData, ShapeUniform, MAX_CIRCLES},
     },
 };
@@ -30,7 +30,7 @@ pub struct AppState<'a> {
     pub feature_uniform: FeatureUniform,
     pub draw_uniform: DrawUniform,
     pub mouse_state: MouseState,
-    pub shape_stack: ShapeStack,
+    pub shape_stack: RevisionStack,
 
     pub image_shader: Shader,
     pub shape_shader: Shader,
@@ -91,7 +91,7 @@ impl<'a> AppState<'a> {
         );
 
         let mouse_state = MouseState::default();
-        let shape_stack = ShapeStack::new();
+        let shape_stack = RevisionStack::new();
 
         Ok(Self {
             gpu_allocator,
@@ -151,7 +151,7 @@ impl<'a> AppState<'a> {
 
                                 let (x, y) = initial_drag_position.unwrap();
                                 let (edge_x, edge_y) = self.mouse_state.position();
-                                let radius = compute_radius((x, y), (edge_x, edge_y));
+                                let radius = compute_distance((x, y), (edge_x, edge_y));
 
                                 // Convert to normalized coordinates (0-1 range)
                                 let normalized_x = x / self.size.width as f32;
@@ -187,8 +187,8 @@ impl<'a> AppState<'a> {
                                     self.size.height,
                                 ) {
                                     // Found a circle - select it and start dragging
-                                    self.mouse_state.set_selected_circle(Some(circle_index));
-                                    self.mouse_state.set_dragging_circle(true);
+                                    self.mouse_state.set_selected_shape(Some(circle_index));
+                                    self.mouse_state.set_dragging_shape(true);
 
                                     // Calculate offset from circle center to mouse position
                                     if let Some(Shape::Circle { x, y, .. }) =
@@ -200,12 +200,12 @@ impl<'a> AppState<'a> {
                                     }
                                 } else {
                                     // Clicked on empty space - deselect any selected circle
-                                    self.mouse_state.set_selected_circle(None);
+                                    self.mouse_state.set_selected_shape(None);
                                 }
                             }
                             (true, false) => {
                                 // Mouse release - stop dragging
-                                self.mouse_state.set_dragging_circle(false);
+                                self.mouse_state.set_dragging_shape(false);
                             }
                             _ => {}
                         }
@@ -218,13 +218,13 @@ impl<'a> AppState<'a> {
                 if draw_uniform.crosshair() {
                     // Crosshair mode: Update the preview circle radius
                     if let Some(center) = self.mouse_state.start_drag() {
-                        let radius = compute_radius(center, (x, y));
+                        let radius = compute_distance(center, (x, y));
                         self.draw_uniform.set_circle_radius(radius);
                     }
                 } else {
                     // Selection mode: Handle circle dragging
-                    if self.mouse_state.dragging_circle() {
-                        if let Some(selected_index) = self.mouse_state.selected_circle() {
+                    if self.mouse_state.dragging_shape() {
+                        if let Some(selected_index) = self.mouse_state.selected_shape() {
                             let normalized_x = x / self.size.width as f32;
                             let normalized_y = y / self.size.height as f32;
 
@@ -234,7 +234,7 @@ impl<'a> AppState<'a> {
                             let new_y = normalized_y - offset_y;
 
                             // Move the circle to the new position
-                            self.shape_stack.move_circle(selected_index, new_x, new_y);
+                            self.shape_stack.move_shape(selected_index, new_x, new_y);
                         }
                     }
                 }
@@ -304,10 +304,10 @@ impl<'a> AppState<'a> {
                 (KeyCode::Delete, ElementState::Pressed)
                 | (KeyCode::Backspace, ElementState::Pressed) => {
                     // Delete the selected circle
-                    if let Some(selected_index) = self.mouse_state.selected_circle() {
-                        self.shape_stack.remove_circle(selected_index);
-                        self.mouse_state.set_selected_circle(None);
-                        self.mouse_state.set_dragging_circle(false);
+                    if let Some(selected_index) = self.mouse_state.selected_shape() {
+                        self.shape_stack.remove_shape(selected_index);
+                        self.mouse_state.set_selected_shape(None);
+                        self.mouse_state.set_dragging_shape(false);
                     }
                 }
                 _ => return false,
@@ -336,7 +336,7 @@ impl<'a> AppState<'a> {
 
         self.shape_uniform.set_num_circles(num_circles as u32);
         self.shape_uniform
-            .set_selected_circle(self.mouse_state.selected_circle());
+            .set_selected_circle(self.mouse_state.selected_shape());
 
         // Update shape uniform
         let shape_uniform_resources = &self.shape_shader.uniform_resources;
