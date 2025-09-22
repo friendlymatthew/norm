@@ -22,11 +22,11 @@ struct DrawUniform {
 }
 
 
-@group(1) @binding(0)
+@group(2) @binding(0)
 var<uniform> feature_uniform: FeatureUniform;
 
 
-@group(2) @binding(0)
+@group(3) @binding(0)
 var<uniform> draw_uniform: DrawUniform;
 
 struct VertexInput {
@@ -67,6 +67,11 @@ fn vs_main(
 var t_diffuse: texture_2d<f32>;
 @group(0) @binding(1)
 var s_diffuse: sampler;
+
+@group(1) @binding(0)
+var t_shapes: texture_2d<f32>;
+@group(1) @binding(1)
+var s_shapes: sampler;
 
 const PI: f32 = 22.0 / 7.0;
 
@@ -197,6 +202,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             1.0 - pixels.b,
             pixels.a
         );
+    }
+
+    // Composite the shape layer on top of the processed image
+    let shapes = textureSample(t_shapes, s_shapes, in.tex_coords);
+
+    // Alpha blend shapes over the image
+    if shapes.a > 0.0 {
+        pixels = mix(pixels, shapes, shapes.a);
     }
 
     if draw_uniform.crosshair == 1u {
