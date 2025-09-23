@@ -13,7 +13,7 @@ use crate::{
 use anyhow::Result;
 use winit::{
     dpi::PhysicalSize,
-    event::{ElementState, Event, KeyEvent, MouseButton, WindowEvent},
+    event::{ElementState, Event, KeyEvent, Modifiers, MouseButton, WindowEvent},
     event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
     window::{CursorIcon, Window, WindowBuilder},
@@ -30,7 +30,8 @@ pub struct AppState<'a> {
     pub feature_uniform: FeatureUniform,
     pub draw_uniform: DrawUniform,
     pub mouse_state: MouseState,
-    pub shape_stack: RevisionStack,
+    pub revision_stack: RevisionStack,
+    pub modifiers: Modifiers,
 
     pub image_shader: Shader,
     pub shape_shader: Shader,
@@ -91,7 +92,8 @@ impl<'a> AppState<'a> {
         );
 
         let mouse_state = MouseState::default();
-        let shape_stack = RevisionStack::new();
+        let revision_stack = RevisionStack::default();
+        let modifiers = Modifiers::default();
 
         Ok(Self {
             gpu_allocator,
@@ -100,7 +102,8 @@ impl<'a> AppState<'a> {
             feature_uniform,
             draw_uniform,
             mouse_state,
-            shape_stack,
+            revision_stack,
+            modifiers,
             image_shader,
             shape_shader,
             shape_render_texture,
@@ -159,7 +162,7 @@ impl<'a> AppState<'a> {
                                 let normalized_radius =
                                     radius / (self.size.width.min(self.size.height) as f32);
 
-                                self.shape_stack.push(Shape::Circle {
+                                self.revision_stack.push_shape(Shape::Circle {
                                     x: normalized_x,
                                     y: normalized_y,
                                     radius: normalized_radius,
@@ -180,24 +183,25 @@ impl<'a> AppState<'a> {
                                 let normalized_x = mouse_x / self.size.width as f32;
                                 let normalized_y = mouse_y / self.size.height as f32;
 
-                                if let Some(circle_index) = self.shape_stack.find_shape_at_point(
-                                    normalized_x,
-                                    normalized_y,
-                                    self.size.width,
-                                    self.size.height,
-                                ) {
+                                if let Some(circle_index) =
+                                    self.revision_stack.shape_stack.find_shape_at_point(
+                                        normalized_x,
+                                        normalized_y,
+                                        self.size.width,
+                                        self.size.height,
+                                    )
+                                {
                                     // Found a circle - select it and start dragging
                                     self.mouse_state.set_selected_shape(Some(circle_index));
                                     self.mouse_state.set_dragging_shape(true);
 
                                     // Calculate offset from circle center to mouse position
-                                    if let Some(Shape::Circle { x, y, .. }) =
-                                        self.shape_stack.shapes().get(circle_index)
-                                    {
-                                        let offset_x = normalized_x - x;
-                                        let offset_y = normalized_y - y;
-                                        self.mouse_state.set_drag_offset((offset_x, offset_y));
-                                    }
+                                    let Shape::Circle { x, y, .. } =
+                                        self.revision_stack.shape_stack.get_unchecked(circle_index);
+
+                                    let offset_x = normalized_x - x;
+                                    let offset_y = normalized_y - y;
+                                    self.mouse_state.set_drag_offset((offset_x, offset_y));
                                 } else {
                                     // Clicked on empty space - deselect any selected circle
                                     self.mouse_state.set_selected_shape(None);
@@ -234,12 +238,19 @@ impl<'a> AppState<'a> {
                             let new_y = normalized_y - offset_y;
 
                             // Move the circle to the new position
-                            self.shape_stack.move_shape(selected_index, new_x, new_y);
+                            self.revision_stack.shape_stack.move_shape(
+                                selected_index,
+                                new_x,
+                                new_y,
+                            );
                         }
                     }
                 }
 
                 self.mouse_state.update_position(x, y);
+            }
+            WindowEvent::ModifiersChanged(new_modifiers) => {
+                self.modifiers = *new_modifiers;
             }
             WindowEvent::KeyboardInput {
                 event:
@@ -305,9 +316,20 @@ impl<'a> AppState<'a> {
                 | (KeyCode::Backspace, ElementState::Pressed) => {
                     // Delete the selected circle
                     if let Some(selected_index) = self.mouse_state.selected_shape() {
-                        self.shape_stack.remove_shape(selected_index);
+                        self.revision_stack.shape_stack.remove_shape(selected_index);
                         self.mouse_state.set_selected_shape(None);
                         self.mouse_state.set_dragging_shape(false);
+                    }
+                }
+                (KeyCode::KeyZ, ElementState::Pressed) => {
+                    #[cfg(target_os = "macos")]
+                    if self.modifiers.state().super_key() {
+                        self.revision_stack.undo();
+                    }
+
+                    #[cfg(not(target_os = "macos"))]
+                    if self.modifiers.state().control_key() {
+                        self.revision_stack.undo();
                     }
                 }
                 _ => return false,
@@ -331,8 +353,7 @@ impl<'a> AppState<'a> {
     }
 
     fn update_shape_data(&mut self) {
-        let shapes = self.shape_stack.shapes();
-        let num_circles = shapes.len().min(MAX_CIRCLES);
+        let num_circles = self.revision_stack.shape_stack.len().min(MAX_CIRCLES);
 
         self.shape_uniform.set_num_circles(num_circles as u32);
         self.shape_uniform
@@ -345,7 +366,14 @@ impl<'a> AppState<'a> {
 
         // Update circle storage buffer
         let mut circle_data = vec![CircleData::default(); MAX_CIRCLES];
-        for (i, shape) in shapes.iter().take(MAX_CIRCLES).enumerate() {
+        for (i, (_, shape)) in self
+            .revision_stack
+            .shape_stack
+            .shapes()
+            .into_iter()
+            .take(MAX_CIRCLES)
+            .enumerate()
+        {
             circle_data[i] = CircleData::from(shape);
         }
 
