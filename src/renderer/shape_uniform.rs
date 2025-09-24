@@ -1,4 +1,4 @@
-use crate::renderer::shape::Shape;
+use crate::renderer::shape::Circle;
 
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -43,20 +43,16 @@ pub struct CircleData {
     pub _padding: f32,
 }
 
-impl From<&Shape> for CircleData {
-    fn from(shape: &Shape) -> Self {
-        match shape {
-            Shape::Circle(circle) => {
-                let (x, y) = circle.center();
-                let radius = circle.radius();
+impl From<&Circle> for CircleData {
+    fn from(circle: &Circle) -> Self {
+        let (x, y) = circle.center();
+        let radius = circle.radius();
 
-                Self {
-                    x,
-                    y,
-                    radius,
-                    _padding: 0.0,
-                }
-            }
+        Self {
+            x,
+            y,
+            radius,
+            _padding: 0.0,
         }
     }
 }

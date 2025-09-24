@@ -251,33 +251,33 @@ impl<'a> GpuResourceAllocator<'a> {
             });
 
         // Create bind group layout for uniform + storage buffer
-        let bind_group_layout = self
-            .device
-            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
+        let bind_group_layout =
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
                         },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
                         },
-                        count: None,
-                    },
-                ],
-                label: Some("shape_bind_group_layout"),
-            });
+                    ],
+                    label: Some("shape_bind_group_layout"),
+                });
 
         let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
@@ -404,7 +404,11 @@ impl<'a> GpuResourceAllocator<'a> {
     pub fn create_render_texture(&self, label: &str, width: u32, height: u32) -> TextureResource {
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some(label),
-            size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -424,7 +428,11 @@ impl<'a> GpuResourceAllocator<'a> {
             ..Default::default()
         });
 
-        let diffuse_texture = Texture { texture, view, sampler };
+        let diffuse_texture = Texture {
+            texture,
+            view,
+            sampler,
+        };
 
         let texture_bind_group_layout =
             self.device
@@ -586,7 +594,11 @@ impl<'a> GpuResourceAllocator<'a> {
         self.queue.submit(iter::once(encoder.finish()));
     }
 
-    pub fn create_texture_resource_from_existing(&self, label: &str, texture: &crate::renderer::Texture) -> TextureResource {
+    pub fn create_texture_resource_from_existing(
+        &self,
+        label: &str,
+        texture: &crate::renderer::Texture,
+    ) -> TextureResource {
         let texture_bind_group_layout =
             self.device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -630,7 +642,11 @@ impl<'a> GpuResourceAllocator<'a> {
         // We can't clone the actual wgpu::Texture, so we'll use a dummy one
         let dummy_wgpu_texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("dummy_reference"),
-            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -640,7 +656,9 @@ impl<'a> GpuResourceAllocator<'a> {
         });
 
         let dummy_view = dummy_wgpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let dummy_sampler = self.device.create_sampler(&wgpu::SamplerDescriptor::default());
+        let dummy_sampler = self
+            .device
+            .create_sampler(&wgpu::SamplerDescriptor::default());
 
         let dummy_texture = crate::renderer::Texture {
             texture: dummy_wgpu_texture,

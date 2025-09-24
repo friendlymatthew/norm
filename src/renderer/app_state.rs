@@ -6,7 +6,7 @@ use crate::{
         gpu_state::GpuResourceAllocator,
         mouse_state::MouseState,
         shader::{Shader, TextureResource},
-        shape::{compute_distance, Circle, EditorState, Shape},
+        shape::{compute_distance, Circle, EditorState},
         shape_uniform::{CircleData, ShapeUniform, MAX_CIRCLES},
     },
 };
@@ -145,6 +145,7 @@ impl<'a> AppState<'a> {
                                 let (start_x, start_y) = self.mouse_state.position();
                                 self.mouse_state.set_start_drag(Some((start_x, start_y)));
                                 draw_uniform.set_circle_center(start_x, start_y);
+                                self.mouse_state.set_selected_shape(None);
                             }
                             (true, false) => {
                                 let initial_drag_position = self.mouse_state.start_drag();
@@ -162,7 +163,9 @@ impl<'a> AppState<'a> {
                                     (self.size.width as f32, self.size.height as f32),
                                 );
 
-                                self.editor_state.push_shape(Shape::Circle(circle));
+                                let element_id = self.editor_state.create_shape(circle);
+
+                                self.mouse_state.set_selected_shape(Some(element_id));
 
                                 // Clear state
                                 self.mouse_state.set_start_drag(None);
@@ -177,40 +180,38 @@ impl<'a> AppState<'a> {
                                 // Mouse press - check if we clicked on a circle
                                 let mouse_coordinate = self.mouse_state.position();
 
-                                if let Some(circle_index) =
-                                    self.editor_state.shape_stack.find_shape_at_point(
-                                        mouse_coordinate,
-                                        self.size.width,
-                                        self.size.height,
-                                    )
-                                {
-                                    // Found a circle - select it and start dragging
-                                    self.mouse_state.set_selected_shape(Some(circle_index));
-                                    self.mouse_state.set_dragging_shape(true);
+                                let res = self.editor_state.get_element_by_point(
+                                    mouse_coordinate,
+                                    (self.size.width as f32, self.size.height as f32),
+                                );
 
-                                    // Calculate offset from circle center to mouse position
-                                    let Shape::Circle(circle) =
-                                        self.editor_state.shape_stack.get_unchecked(circle_index);
+                                match res {
+                                    Some(element) => {
+                                        let id = element.id();
+                                        let orig_pos = element.inner().center();
 
-                                    let (x, y) = circle.center();
+                                        self.editor_state.start_shape_translate(id);
 
-                                    let normalized_mouse_coord = {
-                                        let (x_in_pixel_coords, y_in_pixel_coords) =
-                                            mouse_coordinate;
+                                        // Found a circle - select it and start dragging
+                                        self.mouse_state.set_selected_shape(Some(id));
+                                        self.mouse_state.set_dragging_shape(true);
 
-                                        (
-                                            x_in_pixel_coords / self.size.width as f32,
-                                            y_in_pixel_coords / self.size.height as f32,
-                                        )
-                                    };
+                                        let normalized_mouse_coord = {
+                                            let (x_in_pixel_coords, y_in_pixel_coords) =
+                                                mouse_coordinate;
 
-                                    let offset_x = normalized_mouse_coord.0 - x;
-                                    let offset_y = normalized_mouse_coord.1 - y;
+                                            (
+                                                x_in_pixel_coords / self.size.width as f32,
+                                                y_in_pixel_coords / self.size.height as f32,
+                                            )
+                                        };
 
-                                    self.mouse_state.set_drag_offset((offset_x, offset_y));
-                                } else {
-                                    // Clicked on empty space - deselect any selected circle
-                                    self.mouse_state.set_selected_shape(None);
+                                        let offset_x = normalized_mouse_coord.0 - orig_pos.0;
+                                        let offset_y = normalized_mouse_coord.1 - orig_pos.1;
+
+                                        self.mouse_state.set_drag_offset((offset_x, offset_y));
+                                    }
+                                    None => self.mouse_state.set_selected_shape(None),
                                 }
                             }
                             (true, false) => {
@@ -234,7 +235,7 @@ impl<'a> AppState<'a> {
                 } else {
                     // Selection mode: Handle circle dragging
                     if self.mouse_state.dragging_shape() {
-                        if let Some(selected_index) = self.mouse_state.selected_shape() {
+                        if let Some(selected_element_id) = self.mouse_state.selected_shape() {
                             let normalized_x = x / self.size.width as f32;
                             let normalized_y = y / self.size.height as f32;
 
@@ -245,8 +246,7 @@ impl<'a> AppState<'a> {
 
                             // Move the circle to the new position
                             self.editor_state
-                                .shape_stack
-                                .move_shape(selected_index, new_x, new_y);
+                                .translate_shape(selected_element_id, (new_x, new_y));
                         }
                     }
                 }
@@ -319,8 +319,8 @@ impl<'a> AppState<'a> {
                 (KeyCode::Delete, ElementState::Pressed)
                 | (KeyCode::Backspace, ElementState::Pressed) => {
                     // Delete the selected circle
-                    if let Some(selected_index) = self.mouse_state.selected_shape() {
-                        self.editor_state.shape_stack.remove_shape(selected_index);
+                    if let Some(selected_element_id) = self.mouse_state.selected_shape() {
+                        self.editor_state.remove_shape_by_id(selected_element_id);
                         self.mouse_state.set_selected_shape(None);
                         self.mouse_state.set_dragging_shape(false);
                     }
@@ -357,11 +357,17 @@ impl<'a> AppState<'a> {
     }
 
     fn update_shape_data(&mut self) {
-        let num_circles = self.editor_state.shape_stack.len().min(MAX_CIRCLES);
+        let num_circles = self.editor_state.num_elements();
 
         self.shape_uniform.set_num_circles(num_circles as u32);
-        self.shape_uniform
-            .set_selected_circle(self.mouse_state.selected_shape());
+
+        // Convert element ID to array index for the shader
+        let selected_index = self
+            .mouse_state
+            .selected_shape()
+            .and_then(|element_id| self.editor_state.get_element_index_by_id(element_id));
+
+        self.shape_uniform.set_selected_circle(selected_index);
 
         // Update shape uniform
         let shape_uniform_resources = &self.shape_shader.uniform_resources;
@@ -369,17 +375,12 @@ impl<'a> AppState<'a> {
             .write_uniform_buffer(&shape_uniform_resources[0].resource, self.shape_uniform);
 
         // Update circle storage buffer
-        let mut circle_data = vec![CircleData::default(); MAX_CIRCLES];
-        for (i, (_, shape)) in self
+        let circle_data = self
             .editor_state
-            .shape_stack
-            .shapes()
-            .into_iter()
-            .take(MAX_CIRCLES)
-            .enumerate()
-        {
-            circle_data[i] = CircleData::from(shape);
-        }
+            .elements()
+            .iter()
+            .map(|e| CircleData::from(e.inner()))
+            .collect::<Vec<_>>();
 
         self.gpu_allocator
             .write_storage_buffer(&self.circle_storage_buffer, &circle_data);
