@@ -15,13 +15,13 @@ pub enum Action {
 }
 
 #[derive(Debug, Default)]
-pub struct RevisionStack {
+pub struct EditorState {
     stack: Vec<Action>,
 
     pub shape_stack: ShapeStack,
 }
 
-impl RevisionStack {
+impl EditorState {
     pub fn push_shape(&mut self, shape: Shape) {
         let id = self.shape_stack.push(shape);
         self.stack.push(Action::Draw { shape_id: id });
@@ -83,8 +83,7 @@ impl ShapeStack {
         window_width: u32,
         window_height: u32,
     ) -> Option<usize> {
-        let top = self
-            .shapes
+        self.shapes
             .iter()
             .enumerate()
             .rev()
@@ -104,16 +103,7 @@ impl ShapeStack {
 
                     None
                 }
-            });
-
-        if let Some(i) = top {
-            let selected = self.shapes.remove(i);
-            self.shapes.push(selected);
-
-            return Some(self.shapes.len() - 1);
-        }
-
-        None
+            })
     }
 
     // Move a shape to a new position (in normalized coordinates)

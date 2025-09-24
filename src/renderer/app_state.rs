@@ -6,7 +6,7 @@ use crate::{
         gpu_state::GpuResourceAllocator,
         mouse_state::MouseState,
         shader::{Shader, TextureResource},
-        shape::{compute_distance, Circle, RevisionStack, Shape},
+        shape::{compute_distance, Circle, EditorState, Shape},
         shape_uniform::{CircleData, ShapeUniform, MAX_CIRCLES},
     },
 };
@@ -30,7 +30,7 @@ pub struct AppState<'a> {
     pub feature_uniform: FeatureUniform,
     pub draw_uniform: DrawUniform,
     pub mouse_state: MouseState,
-    pub revision_stack: RevisionStack,
+    pub editor_state: EditorState,
     pub modifiers: Modifiers,
 
     pub image_shader: Shader,
@@ -92,7 +92,7 @@ impl<'a> AppState<'a> {
         );
 
         let mouse_state = MouseState::default();
-        let revision_stack = RevisionStack::default();
+        let editor_state = EditorState::default();
         let modifiers = Modifiers::default();
 
         Ok(Self {
@@ -102,7 +102,7 @@ impl<'a> AppState<'a> {
             feature_uniform,
             draw_uniform,
             mouse_state,
-            revision_stack,
+            editor_state,
             modifiers,
             image_shader,
             shape_shader,
@@ -162,7 +162,7 @@ impl<'a> AppState<'a> {
                                     (self.size.width as f32, self.size.height as f32),
                                 );
 
-                                self.revision_stack.push_shape(Shape::Circle(circle));
+                                self.editor_state.push_shape(Shape::Circle(circle));
 
                                 // Clear state
                                 self.mouse_state.set_start_drag(None);
@@ -178,7 +178,7 @@ impl<'a> AppState<'a> {
                                 let mouse_coordinate = self.mouse_state.position();
 
                                 if let Some(circle_index) =
-                                    self.revision_stack.shape_stack.find_shape_at_point(
+                                    self.editor_state.shape_stack.find_shape_at_point(
                                         mouse_coordinate,
                                         self.size.width,
                                         self.size.height,
@@ -190,7 +190,7 @@ impl<'a> AppState<'a> {
 
                                     // Calculate offset from circle center to mouse position
                                     let Shape::Circle(circle) =
-                                        self.revision_stack.shape_stack.get_unchecked(circle_index);
+                                        self.editor_state.shape_stack.get_unchecked(circle_index);
 
                                     let (x, y) = circle.center();
 
@@ -244,11 +244,9 @@ impl<'a> AppState<'a> {
                             let new_y = normalized_y - offset_y;
 
                             // Move the circle to the new position
-                            self.revision_stack.shape_stack.move_shape(
-                                selected_index,
-                                new_x,
-                                new_y,
-                            );
+                            self.editor_state
+                                .shape_stack
+                                .move_shape(selected_index, new_x, new_y);
                         }
                     }
                 }
@@ -322,7 +320,7 @@ impl<'a> AppState<'a> {
                 | (KeyCode::Backspace, ElementState::Pressed) => {
                     // Delete the selected circle
                     if let Some(selected_index) = self.mouse_state.selected_shape() {
-                        self.revision_stack.shape_stack.remove_shape(selected_index);
+                        self.editor_state.shape_stack.remove_shape(selected_index);
                         self.mouse_state.set_selected_shape(None);
                         self.mouse_state.set_dragging_shape(false);
                     }
@@ -330,7 +328,7 @@ impl<'a> AppState<'a> {
                 (KeyCode::KeyZ, ElementState::Pressed) => {
                     #[cfg(target_os = "macos")]
                     if self.modifiers.state().super_key() {
-                        self.revision_stack.undo();
+                        self.editor_state.undo();
                     }
 
                     #[cfg(not(target_os = "macos"))]
@@ -359,7 +357,7 @@ impl<'a> AppState<'a> {
     }
 
     fn update_shape_data(&mut self) {
-        let num_circles = self.revision_stack.shape_stack.len().min(MAX_CIRCLES);
+        let num_circles = self.editor_state.shape_stack.len().min(MAX_CIRCLES);
 
         self.shape_uniform.set_num_circles(num_circles as u32);
         self.shape_uniform
@@ -373,7 +371,7 @@ impl<'a> AppState<'a> {
         // Update circle storage buffer
         let mut circle_data = vec![CircleData::default(); MAX_CIRCLES];
         for (i, (_, shape)) in self
-            .revision_stack
+            .editor_state
             .shape_stack
             .shapes()
             .into_iter()
