@@ -6,7 +6,7 @@ use crate::{
         gpu_state::GpuResourceAllocator,
         mouse_state::MouseState,
         shader::{Shader, TextureResource},
-        shape::{compute_distance, RevisionStack, Shape},
+        shape::{compute_distance, Circle, RevisionStack, Shape},
         shape_uniform::{CircleData, ShapeUniform, MAX_CIRCLES},
     },
 };
@@ -152,21 +152,17 @@ impl<'a> AppState<'a> {
                                     panic!("Logic error occurred. Mouse state once finished pressing doesn't have initial drag position set.");
                                 }
 
-                                let (x, y) = initial_drag_position.unwrap();
+                                let pixel_coord = initial_drag_position.unwrap();
                                 let (edge_x, edge_y) = self.mouse_state.position();
-                                let radius = compute_distance((x, y), (edge_x, edge_y));
+                                let radius = compute_distance(pixel_coord, (edge_x, edge_y));
 
-                                // Convert to normalized coordinates (0-1 range)
-                                let normalized_x = x / self.size.width as f32;
-                                let normalized_y = y / self.size.height as f32;
-                                let normalized_radius =
-                                    radius / (self.size.width.min(self.size.height) as f32);
+                                let circle = Circle::from_pixel_coordinate(
+                                    pixel_coord,
+                                    radius,
+                                    (self.size.width as f32, self.size.height as f32),
+                                );
 
-                                self.revision_stack.push_shape(Shape::Circle {
-                                    x: normalized_x,
-                                    y: normalized_y,
-                                    radius: normalized_radius,
-                                });
+                                self.revision_stack.push_shape(Shape::Circle(circle));
 
                                 // Clear state
                                 self.mouse_state.set_start_drag(None);
@@ -179,14 +175,11 @@ impl<'a> AppState<'a> {
                         match (prev_state, self.mouse_state.pressed()) {
                             (false, true) => {
                                 // Mouse press - check if we clicked on a circle
-                                let (mouse_x, mouse_y) = self.mouse_state.position();
-                                let normalized_x = mouse_x / self.size.width as f32;
-                                let normalized_y = mouse_y / self.size.height as f32;
+                                let mouse_coordinate = self.mouse_state.position();
 
                                 if let Some(circle_index) =
                                     self.revision_stack.shape_stack.find_shape_at_point(
-                                        normalized_x,
-                                        normalized_y,
+                                        mouse_coordinate,
                                         self.size.width,
                                         self.size.height,
                                     )
@@ -196,11 +189,24 @@ impl<'a> AppState<'a> {
                                     self.mouse_state.set_dragging_shape(true);
 
                                     // Calculate offset from circle center to mouse position
-                                    let Shape::Circle { x, y, .. } =
+                                    let Shape::Circle(circle) =
                                         self.revision_stack.shape_stack.get_unchecked(circle_index);
 
-                                    let offset_x = normalized_x - x;
-                                    let offset_y = normalized_y - y;
+                                    let (x, y) = circle.center();
+
+                                    let normalized_mouse_coord = {
+                                        let (x_in_pixel_coords, y_in_pixel_coords) =
+                                            mouse_coordinate;
+
+                                        (
+                                            x_in_pixel_coords / self.size.width as f32,
+                                            y_in_pixel_coords / self.size.height as f32,
+                                        )
+                                    };
+
+                                    let offset_x = normalized_mouse_coord.0 - x;
+                                    let offset_y = normalized_mouse_coord.1 - y;
+
                                     self.mouse_state.set_drag_offset((offset_x, offset_y));
                                 } else {
                                     // Clicked on empty space - deselect any selected circle

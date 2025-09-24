@@ -46,12 +46,17 @@ pub struct CircleData {
 impl From<&Shape> for CircleData {
     fn from(shape: &Shape) -> Self {
         match shape {
-            Shape::Circle { x, y, radius } => Self {
-                x: *x,
-                y: *y,
-                radius: *radius,
-                _padding: 0.0,
-            },
+            Shape::Circle(circle) => {
+                let (x, y) = circle.center();
+                let radius = circle.radius();
+
+                Self {
+                    x,
+                    y,
+                    radius,
+                    _padding: 0.0,
+                }
+            }
         }
     }
 }

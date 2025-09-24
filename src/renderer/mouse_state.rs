@@ -1,3 +1,5 @@
+use crate::renderer::shape::Coordinate;
+
 #[derive(Debug, Default)]
 pub struct MouseState {
     pressed: bool,
@@ -26,7 +28,8 @@ impl MouseState {
         self.start_drag = original_drag;
     }
 
-    pub(crate) const fn position(&self) -> (f32, f32) {
+    /// Returns the mouse position in pixel coordinates
+    pub(crate) const fn position(&self) -> Coordinate {
         (self.position_x, self.position_y)
     }
 

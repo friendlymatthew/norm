@@ -79,8 +79,7 @@ impl ShapeStack {
     // Pushes the selected shape to the top of the stack
     pub fn find_shape_at_point(
         &mut self,
-        x: f32,
-        y: f32,
+        mouse_position_in_pixel_coords: Coordinate, // in pixel coordinates
         window_width: u32,
         window_height: u32,
     ) -> Option<usize> {
@@ -90,22 +89,16 @@ impl ShapeStack {
             .enumerate()
             .rev()
             .find_map(|(i, (_shape_id, s))| match s {
-                Shape::Circle {
-                    x: cx,
-                    y: cy,
-                    radius,
-                } => {
-                    // Convert normalized coordinates to pixel coordinates for precise calculation
-                    let pixel_x = x * window_width as f32;
-                    let pixel_y = y * window_height as f32;
-                    let circle_pixel_x = cx * window_width as f32;
-                    let circle_pixel_y = cy * window_height as f32;
-                    let circle_pixel_radius = radius * (window_width.min(window_height) as f32);
+                Shape::Circle(circle) => {
+                    // convert normalized coordinates to pixel coordinates for precise calculation
+                    let circle_in_pixel_coords =
+                        circle.into_pixel_coordinate((window_width as f32, window_height as f32));
 
-                    let distance =
-                        compute_distance((pixel_x, pixel_y), (circle_pixel_x, circle_pixel_y));
-
-                    if distance <= circle_pixel_radius {
+                    if compute_distance(
+                        circle_in_pixel_coords.center(),
+                        mouse_position_in_pixel_coords,
+                    ) <= circle_in_pixel_coords.radius()
+                    {
                         return Some(i);
                     }
 
@@ -130,7 +123,7 @@ impl ShapeStack {
             .get_mut(index)
             .expect("index should always be valid");
 
-        shape.update_position(new_x, new_y);
+        shape.translate((new_x, new_y));
     }
 
     pub fn remove_shape(&mut self, index: usize) {
@@ -156,15 +149,14 @@ impl ShapeStack {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum Shape {
-    Circle { x: f32, y: f32, radius: f32 },
+    Circle(Circle),
 }
 
 impl Shape {
-    pub fn update_position(&mut self, new_x: f32, new_y: f32) {
+    pub fn translate(&mut self, new_coord: Coordinate) {
         match self {
-            Shape::Circle { x, y, .. } => {
-                *x = new_x;
-                *y = new_y;
+            Shape::Circle(circle) => {
+                circle.translate(new_coord);
             }
         }
     }
@@ -172,4 +164,51 @@ impl Shape {
 
 pub fn compute_distance(from: (f32, f32), to: (f32, f32)) -> f32 {
     (from.0 - to.0).hypot(from.1 - to.1)
+}
+
+// Stored as (x, y)
+pub type Coordinate = (f32, f32);
+
+#[derive(Debug)]
+pub struct Circle {
+    center: Coordinate,
+    radius: f32,
+}
+
+impl Circle {
+    pub fn from_pixel_coordinate(
+        center: Coordinate,
+        radius: f32,
+        window_dimensions: (f32, f32),
+    ) -> Self {
+        let (w, h) = window_dimensions;
+        let (cx, cy) = center;
+
+        Self {
+            center: (cx / w, cy / h),
+            radius: radius / w.min(h),
+        }
+    }
+
+    pub fn into_pixel_coordinate(&self, window_dimensions: (f32, f32)) -> Self {
+        let (w, h) = window_dimensions;
+        let (cx, cy) = self.center;
+
+        Self {
+            center: (cx * w, cy * h),
+            radius: self.radius * w.min(h),
+        }
+    }
+
+    pub fn center(&self) -> Coordinate {
+        self.center
+    }
+
+    pub fn radius(&self) -> f32 {
+        self.radius
+    }
+
+    pub fn translate(&mut self, new_center: Coordinate) {
+        self.center = new_center;
+    }
 }
