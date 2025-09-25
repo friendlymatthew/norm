@@ -113,7 +113,7 @@ impl EditorState {
     ) -> Option<&Element> {
         self.element_stack.iter().rev().find(|e| {
             let circle = e.inner();
-            let circle_in_pixel_coords = circle.convert_into_pixel_coordinate(window_dimension);
+            let circle_in_pixel_coords = circle.in_pixel_space(window_dimension);
 
             compute_distance(circle_in_pixel_coords.center(), point)
                 <= circle_in_pixel_coords.radius()
@@ -161,9 +161,9 @@ impl EditorState {
 
     pub fn copy_shape(&mut self, circle: Circle, window_dimensions: (f32, f32)) -> usize {
         let circle = circle
-            .convert_into_pixel_coordinate(window_dimensions)
+            .in_pixel_space(window_dimensions)
             .translate((40.0, 40.0))
-            .convert_into_normalized_coordinate(window_dimensions);
+            .in_normalized_space(window_dimensions);
 
         self.create_shape(circle)
     }
@@ -175,30 +175,31 @@ pub fn compute_distance(from: Coordinate, to: Coordinate) -> f32 {
 
 // Stored as (x, y)
 pub type Coordinate = (f32, f32);
+pub type WindowDimension = (f32, f32);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Circle {
     center: Coordinate,
     radius: f32,
 }
 
 impl Circle {
-    pub fn from_pixel_coordinate(
-        center: Coordinate,
-        radius: f32,
-        window_dimensions: (f32, f32),
+    pub fn from_pixel_space(
+        center_in_pixel_space: Coordinate,
+        radius_in_pixel_space: f32,
+        window_dimension: WindowDimension,
     ) -> Self {
-        let (w, h) = window_dimensions;
-        let (cx, cy) = center;
+        let (w, h) = window_dimension;
+        let (cx, cy) = center_in_pixel_space;
 
         Self {
             center: (cx / w, cy / h),
-            radius: radius / w.min(h),
+            radius: radius_in_pixel_space / w.min(h),
         }
     }
 
-    pub fn convert_into_normalized_coordinate(&self, window_dimensions: (f32, f32)) -> Self {
-        let (w, h) = window_dimensions;
+    pub fn in_normalized_space(&self, window_dimension: WindowDimension) -> Self {
+        let (w, h) = window_dimension;
         let (cx, cy) = self.center;
 
         Self {
@@ -207,8 +208,8 @@ impl Circle {
         }
     }
 
-    pub fn convert_into_pixel_coordinate(&self, window_dimensions: (f32, f32)) -> Self {
-        let (w, h) = window_dimensions;
+    pub fn in_pixel_space(&self, window_dimension: WindowDimension) -> Self {
+        let (w, h) = window_dimension;
         let (cx, cy) = self.center;
 
         Self {

@@ -157,7 +157,7 @@ impl<'a> AppState<'a> {
                                 let (edge_x, edge_y) = self.mouse_state.position();
                                 let radius = compute_distance(pixel_coord, (edge_x, edge_y));
 
-                                let circle = Circle::from_pixel_coordinate(
+                                let circle = Circle::from_pixel_space(
                                     pixel_coord,
                                     radius,
                                     (self.size.width as f32, self.size.height as f32),
