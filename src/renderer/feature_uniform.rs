@@ -34,16 +34,6 @@ impl FeatureUniform {
             transform: Self::TRANSFORM_IDENTITY,
         }
     }
-
-    pub(crate) const fn reset_features(&mut self) {
-        self.grayscale = 0;
-        // self.sepia = 0;
-        self.invert = 0;
-        self.blur = 0;
-        self.sharpen = 0;
-        self.edge_detect = 0;
-        self.transform = Self::TRANSFORM_IDENTITY;
-    }
 }
 
 impl FeatureUniform {

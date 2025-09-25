@@ -58,11 +58,16 @@ impl EditorState {
     }
 
     pub fn create_shape(&mut self, circle: Circle) -> usize {
+        let element_id = self.create_element(circle);
+        self.revision_stack.push(ElementAction::Draw { element_id });
+
+        element_id
+    }
+
+    fn create_element(&mut self, circle: Circle) -> usize {
         let _id = self.next_id();
 
         self.element_stack.push(Element { _id, inner: circle });
-        self.revision_stack
-            .push(ElementAction::Draw { element_id: _id });
 
         _id
     }
@@ -77,13 +82,15 @@ impl EditorState {
                 element_id,
                 original_pos,
             });
+
+            println!("{:#?}", self.revision_stack);
         }
     }
 
     pub fn translate_shape(&mut self, element_id: usize, new_coord: Coordinate) {
         if let Some(i) = self.get_element_index_by_id(element_id) {
             let element = unsafe { self.element_stack.get_unchecked_mut(i) };
-            element.inner.translate(new_coord);
+            element.inner.set_center(new_coord);
         }
     }
 
@@ -94,6 +101,11 @@ impl EditorState {
             .find_map(|(i, &Element { _id, .. })| if _id == element_id { Some(i) } else { None })
     }
 
+    pub fn get_element_by_id(&self, element_id: usize) -> Option<&Element> {
+        self.get_element_index_by_id(element_id)
+            .map(|i| &self.element_stack[i])
+    }
+
     pub fn get_element_by_point(
         &self,
         point: Coordinate,
@@ -101,7 +113,7 @@ impl EditorState {
     ) -> Option<&Element> {
         self.element_stack.iter().rev().find(|e| {
             let circle = e.inner();
-            let circle_in_pixel_coords = circle.convert_pixel_coordinate(window_dimension);
+            let circle_in_pixel_coords = circle.convert_into_pixel_coordinate(window_dimension);
 
             compute_distance(circle_in_pixel_coords.center(), point)
                 <= circle_in_pixel_coords.radius()
@@ -109,16 +121,19 @@ impl EditorState {
     }
 
     pub fn remove_shape_by_id(&mut self, element_id: usize) {
-        if let Some(i) = self.get_element_index_by_id(element_id) {
-            self.remove_shape_by_index(i);
-        }
-    }
-
-    fn remove_shape_by_index(&mut self, index: usize) {
-        let Element { _id, inner } = self.element_stack.remove(index);
+        let Element { _id, inner } = self.remove_element(element_id);
         self.revision_stack
             .push(ElementAction::Delete { element_id: _id });
+
         self.deleted_shapes.insert(_id, inner);
+    }
+
+    fn remove_element(&mut self, element_id: usize) -> Element {
+        if let Some(i) = self.get_element_index_by_id(element_id) {
+            return self.element_stack.remove(i);
+        }
+
+        panic!("expected a valid element id");
     }
 
     fn find_deleted_shape(&mut self, element_id: usize) -> Option<Circle> {
@@ -126,20 +141,31 @@ impl EditorState {
     }
 
     pub fn undo(&mut self) {
-        if let Some(last_action) = self.revision_stack.last() {
+        if let Some(last_action) = self.revision_stack.pop() {
             match last_action {
                 ElementAction::Move {
                     element_id,
                     original_pos,
-                } => self.translate_shape(*element_id, *original_pos),
-                ElementAction::Draw { element_id } => self.remove_shape_by_id(*element_id),
+                } => self.translate_shape(element_id, original_pos),
+                ElementAction::Draw { element_id } => {
+                    let _ = self.remove_element(element_id);
+                }
                 ElementAction::Delete { element_id } => {
-                    if let Some(circle) = self.find_deleted_shape(*element_id) {
-                        self.create_shape(circle);
+                    if let Some(circle) = self.find_deleted_shape(element_id) {
+                        self.create_element(circle);
                     }
                 }
             }
         }
+    }
+
+    pub fn copy_shape(&mut self, circle: Circle, window_dimensions: (f32, f32)) -> usize {
+        let circle = circle
+            .convert_into_pixel_coordinate(window_dimensions)
+            .translate((40.0, 40.0))
+            .convert_into_normalized_coordinate(window_dimensions);
+
+        self.create_shape(circle)
     }
 }
 
@@ -150,7 +176,7 @@ pub fn compute_distance(from: Coordinate, to: Coordinate) -> f32 {
 // Stored as (x, y)
 pub type Coordinate = (f32, f32);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Circle {
     center: Coordinate,
     radius: f32,
@@ -171,7 +197,17 @@ impl Circle {
         }
     }
 
-    pub fn convert_pixel_coordinate(&self, window_dimensions: (f32, f32)) -> Self {
+    pub fn convert_into_normalized_coordinate(&self, window_dimensions: (f32, f32)) -> Self {
+        let (w, h) = window_dimensions;
+        let (cx, cy) = self.center;
+
+        Self {
+            center: (cx / w, cy / h),
+            radius: self.radius / w.min(h),
+        }
+    }
+
+    pub fn convert_into_pixel_coordinate(&self, window_dimensions: (f32, f32)) -> Self {
         let (w, h) = window_dimensions;
         let (cx, cy) = self.center;
 
@@ -189,7 +225,18 @@ impl Circle {
         self.radius
     }
 
-    pub const fn translate(&mut self, new_center: Coordinate) {
+    pub const fn set_center(&mut self, new_center: Coordinate) {
         self.center = new_center;
+    }
+
+    // note the offsets are in pixel coordinates!
+    pub const fn translate(&self, offset: Coordinate) -> Self {
+        let (dx, dy) = offset;
+        let (x, y) = self.center;
+
+        Self {
+            center: (x + dx, y + dy),
+            radius: self.radius,
+        }
     }
 }

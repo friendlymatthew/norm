@@ -274,9 +274,9 @@ impl<'a> AppState<'a> {
                         self.window.set_cursor_icon(CursorIcon::Default);
                     }
                 }
-                (KeyCode::KeyC, ElementState::Pressed) => {
-                    feature_uniform.reset_features();
-                }
+                // (KeyCode::KeyC, ElementState::Pressed) => {
+                //     feature_uniform.reset_features();
+                // }
                 (KeyCode::KeyB, ElementState::Pressed) => {
                     feature_uniform.toggle_blur();
                 }
@@ -334,6 +334,54 @@ impl<'a> AppState<'a> {
                     #[cfg(not(target_os = "macos"))]
                     if self.modifiers.state().control_key() {
                         self.revision_stack.undo();
+                    }
+                }
+                (KeyCode::KeyC, ElementState::Pressed) => {
+                    #[cfg(target_os = "macos")]
+                    if self.modifiers.state().super_key() {
+                        let circle = self.mouse_state.selected_shape().map(|i| {
+                            self.editor_state
+                                .get_element_by_id(i)
+                                .expect("selected id must be valid")
+                                .inner()
+                                .clone()
+                        });
+
+                        self.mouse_state.set_clipboard_shape(circle);
+                    }
+
+                    #[cfg(not(target_os = "macos"))]
+                    if self.modifiers.state().control_key() {
+                        let circle = self.mouse_state.selected_shape().map(|i| {
+                            self.editor_state
+                                .get_element_by_id(i)
+                                .expect("selected id must be valid")
+                                .inner()
+                                .clone()
+                        });
+
+                        self.mouse_state.set_clipboard_shape(circle);
+                    }
+                }
+                (KeyCode::KeyV, ElementState::Pressed) => {
+                    let window_dimensions = (self.size.width as f32, self.size.height as f32);
+
+                    #[cfg(target_os = "macos")]
+                    if self.modifiers.state().super_key() {
+                        if let Some(circle) = self.mouse_state.clipboard_shape() {
+                            let copied_element_id =
+                                self.editor_state.copy_shape(circle, window_dimensions);
+                            self.mouse_state.set_selected_shape(Some(copied_element_id));
+                        }
+                    }
+
+                    #[cfg(not(target_os = "macos"))]
+                    if self.modifiers.state().control_key() {
+                        if let Some(circle) = self.mouse_state.clipboard_shape() {
+                            let copied_element_id =
+                                self.editor_state.copy_shape(circle, window_dimensions);
+                            self.mouse_state.set_selected_shape(Some(copied_element_id));
+                        }
                     }
                 }
                 _ => return false,

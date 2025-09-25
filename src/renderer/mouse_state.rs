@@ -1,4 +1,4 @@
-use crate::renderer::shape::Coordinate;
+use crate::renderer::shape::{Circle, Coordinate};
 
 #[derive(Debug, Default)]
 pub struct MouseState {
@@ -6,7 +6,8 @@ pub struct MouseState {
     position_x: f32,
     position_y: f32,
     start_drag: Option<(f32, f32)>,
-    selected_shape: Option<usize>, // index to the shape stack
+    selected_shape: Option<usize>,   // index to the shape stack
+    clipboard_shape: Option<Circle>, // index to the shape stack
     dragging_shape: bool,
     drag_offset: (f32, f32),
 }
@@ -42,8 +43,8 @@ impl MouseState {
         self.selected_shape
     }
 
-    pub(crate) const fn set_selected_shape(&mut self, index: Option<usize>) {
-        self.selected_shape = index;
+    pub(crate) const fn set_selected_shape(&mut self, element_id: Option<usize>) {
+        self.selected_shape = element_id;
     }
 
     pub(crate) const fn dragging_shape(&self) -> bool {
@@ -60,5 +61,13 @@ impl MouseState {
 
     pub(crate) const fn set_drag_offset(&mut self, offset: (f32, f32)) {
         self.drag_offset = offset;
+    }
+
+    pub(crate) fn clipboard_shape(&self) -> Option<Circle> {
+        self.clipboard_shape.clone()
+    }
+
+    pub(crate) const fn set_clipboard_shape(&mut self, element_id: Option<Circle>) {
+        self.clipboard_shape = element_id;
     }
 }
