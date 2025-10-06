@@ -1,4 +1,4 @@
-# iris
+# norm
 
 <p align="center">
     <img src="obama-luma-gaussian-blur.png" width="250"/>
@@ -10,7 +10,7 @@
 A PNG editor from scratch (well, as close to scratch as possible).
 
 As a decoder, this project uses the [PNG test suite](http://www.schaik.com/pngsuite/) to validate its ability to handle
-various PNG features and edge cases. Currently, iris can decode and render images with an 8-bit color depth.
+various PNG features and edge cases. Currently, norm can decode and render images with an 8-bit color depth.
 
 The renderer supports various image processing features on the GPU.
 
@@ -27,17 +27,17 @@ cargo r --release ./tests/obama.png
 ```bash
 
 # Profile the decoder
-cargo b --release && samply record ./target/release/iris_decode_png ./tests/reagan.png
+cargo b --release && samply record ./target/release/norm_decode_png ./tests/reagan.png
 
 # Run ad-hoc benchmarks
-cargo r --release --bin iris_decode_png --features time ./tests/Periodic_table_large.png
+cargo r --release --bin norm_decode_png --features time ./tests/Periodic_table_large.png
 
 # Parse and render glyphs from the lato font file
 # See the generated `glyph_playground` directory.
-cargo r --bin iris_lato_glyphs hfkdp!
+cargo r --bin norm_lato_glyphs hfkdp!
 
 # Run the PNG test suite
-cargo r --bin iris_png_test_suite
+cargo r --bin norm_png_test_suite
 
 # Fuzz the decoder
 ./fuzz.sh

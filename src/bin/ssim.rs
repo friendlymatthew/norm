@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use iris::png::{grammar::Png, PngDecoder};
+use norm::png::{grammar::Png, PngDecoder};
 use std::{fs, time::Instant};
 
 fn read_png(image_path: &str) -> Result<Png> {

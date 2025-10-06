@@ -1,5 +1,5 @@
 use afl::fuzz;
-use iris::png::PngDecoder;
+use norm::png::PngDecoder;
 
 fn main() {
     fuzz!(|data: &[u8]| {

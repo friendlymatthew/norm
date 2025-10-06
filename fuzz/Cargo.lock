@@ -570,7 +570,7 @@ name = "fuzz"
 version = "0.1.0"
 dependencies = [
  "afl",
- "iris",
+ "norm",
 ]
 
 [[package]]
@@ -751,7 +751,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "iris"
+name = "norm"
 version = "0.1.1"
 dependencies = [
  "anyhow",

@@ -598,7 +598,7 @@ pub async fn run(image: Image) -> anyhow::Result<()> {
 
     let window = WindowBuilder::new()
         .with_inner_size(PhysicalSize::new(width, height))
-        .with_title("iris")
+        .with_title("norm")
         .build(&event_loop)?;
 
     #[cfg(target_arch = "wasm32")]

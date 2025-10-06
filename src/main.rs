@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use iris::{
+use norm::{
     image::{grammar::ImageKind, ImageReader},
     renderer,
 };

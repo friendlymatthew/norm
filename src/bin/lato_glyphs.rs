@@ -1,5 +1,5 @@
 use anyhow::Result;
-use iris::font::{
+use norm::font::{
     grammar::{Glyph, GlyphData, SimpleGlyph},
     shaper::TrueTypeFontShaper,
     TrueTypeFontParser,
@@ -170,7 +170,7 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use iris::font::grammar::SimpleGlyphFlag;
+    use norm::font::grammar::SimpleGlyphFlag;
 
     #[test]
     fn draw_implicit_points() {

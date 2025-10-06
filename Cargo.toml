@@ -1,12 +1,12 @@
 [package]
-name = "iris"
+name = "norm"
 authors = ["Matthew Kim"]
 version = "0.1.1"
 edition = "2021"
 description = "An image editor written from scratch (as close as possible)."
 readme = "README.md"
-repository = "https://github.com/friendlymatthew/iris/"
-default-run = "iris"
+repository = "https://github.com/friendlymatthew/norm/"
+default-run = "norm"
 resolver = "2"
 license = "MIT"
 exclude = [
@@ -20,23 +20,23 @@ exclude = [
 ]
 
 [[bin]]
-name = "iris"
+name = "norm"
 path = "src/main.rs"
 
 [[bin]]
-name = "iris_decode_png"
+name = "norm_decode_png"
 path = "src/bin/decode_png.rs"
 
 [[bin]]
-name = "iris_lato_glyphs"
+name = "norm_lato_glyphs"
 path = "src/bin/lato_glyphs.rs"
 
 [[bin]]
-name = "iris_ssim"
+name = "norm_ssim"
 path = "src/bin/ssim.rs"
 
 [[bin]]
-name = "iris_png_test_suite"
+name = "norm_png_test_suite"
 path = "src/bin/test_suite.rs"
 
 [lib]

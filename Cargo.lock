@@ -945,30 +945,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "iris"
-version = "0.1.1"
-dependencies = [
- "anyhow",
- "bytemuck",
- "cfg-if",
- "comfy-table",
- "console_error_panic_hook",
- "console_log",
- "crc32fast",
- "env_logger",
- "flate2",
- "image",
- "log",
- "pollster",
- "pretty_assertions",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "is-terminal"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1270,6 +1246,30 @@ name = "noop_proc_macro"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
+
+[[package]]
+name = "norm"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "cfg-if",
+ "comfy-table",
+ "console_error_panic_hook",
+ "console_log",
+ "crc32fast",
+ "env_logger",
+ "flate2",
+ "image",
+ "log",
+ "pollster",
+ "pretty_assertions",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+ "winit",
+]
 
 [[package]]
 name = "num-bigint"
