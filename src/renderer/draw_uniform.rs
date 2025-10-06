@@ -34,5 +34,3 @@ impl DrawUniform {
         self.circle_radius = radius;
     }
 }
-
-impl DrawUniform {}

@@ -155,20 +155,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var pixels = textureSample(t_diffuse, s_diffuse, in.tex_coords);
     var viewport_resolution = 1.0 / vec2(f32(feature_uniform.width), f32(feature_uniform.height));
 
-    if feature_uniform.gamma != 0u {
-        // todo! modify the pixels to account for gamma
-        // see https://www.w3.org/TR/2003/REC-PNG-20031110/#13Decoder-gamma-handling
-        let gamma_value = f32(feature_uniform.gamma) / 100000.0;
-        let inv_gamma = 1.0 / gamma_value;
-
-        pixels = vec4<f32>(
-            pow(pixels.r, inv_gamma),
-            pow(pixels.g, inv_gamma),
-            pow(pixels.b, inv_gamma),
-            pixels.a 
-        );
-    }
-
+    // TODO: These will be moved to compute shaders in future refactoring
     if feature_uniform.edge_detect == 1u {
         pixels = detect_edge(in.tex_coords, viewport_resolution);
     }
@@ -179,29 +166,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     if feature_uniform.blur == 1u {
         pixels = gaussian_blur(in.tex_coords, f32(feature_uniform.radius), viewport_resolution);
-    }
-
-    if feature_uniform.grayscale == 1u {
-        var y = (pixels.r * 0.29891 + pixels.g * 0.58661 + pixels.b * 0.11448);
-        pixels = vec4(y, y, y, 1.0);
-    }
-
-//    if feature_uniform.sepia == 1u {
-//        pixels = vec4<f32>(
-//            0.393 * pixels.r + 0.769 * pixels.g + 0.189 * pixels.b,
-//            0.349 * pixels.r + 0.686 * pixels.g + 0.168 * pixels.b,
-//            0.272 * pixels.r + 0.534 * pixels.g + 0.131 * pixels.b,
-//            0.30 * pixels.r + 0.59 * pixels.g + 0.11 * pixels.b
-//        );
-//    }
-
-    if feature_uniform.invert == 1u {
-        pixels = vec4<f32>(
-            1.0 - pixels.r,
-            1.0 - pixels.g,
-            1.0 - pixels.b,
-            pixels.a
-        );
     }
 
     // Composite the shape layer on top of the processed image

@@ -37,7 +37,7 @@ const INDICES: &[u16] = &[
 #[derive(Debug)]
 pub struct GpuResourceAllocator<'a> {
     surface: wgpu::Surface<'a>,
-    device: wgpu::Device,
+    pub(crate) device: wgpu::Device,
     pub(crate) queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
 
@@ -592,6 +592,105 @@ impl<'a> GpuResourceAllocator<'a> {
 
     pub fn end_frame(&self, encoder: wgpu::CommandEncoder) {
         self.queue.submit(iter::once(encoder.finish()));
+    }
+
+    pub fn create_compute_pipeline(
+        &self,
+        label: &str,
+        source: &str,
+        entry_point: &str,
+    ) -> wgpu::ComputePipeline {
+        let shader = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(label),
+                source: wgpu::ShaderSource::Wgsl(source.into()),
+            });
+
+        let bind_group_layout =
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        // Input texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            },
+                            count: None,
+                        },
+                        // Output storage texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::StorageTexture {
+                                access: wgpu::StorageTextureAccess::WriteOnly,
+                                format: wgpu::TextureFormat::Rgba8Unorm,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
+                        },
+                        // Uniform buffer
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                    label: Some(&format!("{}_bind_group_layout", label)),
+                });
+
+        let pipeline_layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some(&format!("{}_pipeline_layout", label)),
+                bind_group_layouts: &[&bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+        self.device
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some(label),
+                layout: Some(&pipeline_layout),
+                module: &shader,
+                entry_point,
+                compilation_options: Default::default(),
+                cache: None,
+            })
+    }
+
+    pub fn create_storage_texture(&self, label: &str, width: u32, height: u32) -> Texture {
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor::default());
+
+        Texture {
+            texture,
+            view,
+            sampler,
+        }
     }
 
     pub fn create_texture_resource_from_existing(

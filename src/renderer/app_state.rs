@@ -38,6 +38,10 @@ pub struct AppState<'a> {
     pub shape_render_texture: TextureResource,
     pub shape_uniform: ShapeUniform,
     pub circle_storage_buffer: wgpu::Buffer,
+
+    pub color_correct_pipeline: wgpu::ComputePipeline,
+    pub color_correct_bind_group: wgpu::BindGroup,
+    pub output_texture: crate::renderer::Texture,
 }
 
 impl<'a> AppState<'a> {
@@ -57,28 +61,55 @@ impl<'a> AppState<'a> {
         let draw_uniform_resource =
             gpu_allocator.create_uniform_resource("draw_uniform", draw_uniform)?;
 
-        // Create shape render texture
         let shape_render_texture =
             gpu_allocator.create_render_texture("shape_texture", size.width, size.height);
 
-        // Create shape uniform and storage buffer
         let shape_uniform = ShapeUniform::new(size.width, size.height);
         let shape_uniform_resource =
             gpu_allocator.create_uniform_resource("shape_uniform", shape_uniform)?;
 
-        // Create empty circle storage buffer
         let empty_circles = vec![CircleData::default(); MAX_CIRCLES];
         let circle_storage_buffer =
             gpu_allocator.create_storage_buffer("circle_storage", &empty_circles)?;
 
-        let shape_shader = gpu_allocator.create_shape_shader(
-            "shape_shader",
-            include_str!("shape_shader.wgsl"),
-            shape_uniform_resource,
-            &circle_storage_buffer,
+        let color_correct_pipeline = gpu_allocator.create_compute_pipeline(
+            "color_correct_compute",
+            include_str!("color_correct_compute.wgsl"),
+            "cs_main",
         );
 
-        // Create a reference to the shape texture for the image shader
+        let output_texture =
+            gpu_allocator.create_storage_texture("processed_texture", size.width, size.height);
+
+        let color_correct_bind_group = {
+            let bind_group_layout = color_correct_pipeline.get_bind_group_layout(0);
+            gpu_allocator
+                .device
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(
+                                &image_texture_resource.resource.view,
+                            ),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&output_texture.view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: feature_uniform_resource.resource.as_entire_binding(),
+                        },
+                    ],
+                    label: Some("color_correct_bind_group"),
+                })
+        };
+
+        let processed_texture_resource = gpu_allocator
+            .create_texture_resource_from_existing("processed_texture_ref", &output_texture);
+
         let shape_texture_for_image = gpu_allocator.create_texture_resource_from_existing(
             "shape_texture_ref",
             &shape_render_texture.resource,
@@ -87,8 +118,15 @@ impl<'a> AppState<'a> {
         let image_shader = gpu_allocator.create_shader(
             "image_shader",
             include_str!("image_shader.wgsl"),
-            vec![image_texture_resource, shape_texture_for_image],
+            vec![processed_texture_resource, shape_texture_for_image],
             vec![feature_uniform_resource, draw_uniform_resource],
+        );
+
+        let shape_shader = gpu_allocator.create_shape_shader(
+            "shape_shader",
+            include_str!("shape_shader.wgsl"),
+            shape_uniform_resource,
+            &circle_storage_buffer,
         );
 
         let mouse_state = MouseState::default();
@@ -109,6 +147,9 @@ impl<'a> AppState<'a> {
             shape_render_texture,
             shape_uniform,
             circle_storage_buffer,
+            color_correct_pipeline,
+            color_correct_bind_group,
+            output_texture,
         })
     }
 
@@ -148,12 +189,7 @@ impl<'a> AppState<'a> {
                                 self.mouse_state.set_selected_shape(None);
                             }
                             (true, false) => {
-                                let initial_drag_position = self.mouse_state.start_drag();
-                                if initial_drag_position.is_none() {
-                                    panic!("Logic error occurred. Mouse state once finished pressing doesn't have initial drag position set.");
-                                }
-
-                                let pixel_coord = initial_drag_position.unwrap();
+                                let pixel_coord= self.mouse_state.start_drag().expect("Logic error occurred. Mouse state once finished pressing doesn't have initial drag position set.");
                                 let (edge_x, edge_y) = self.mouse_state.position();
                                 let radius = compute_distance(pixel_coord, (edge_x, edge_y));
 
@@ -164,7 +200,6 @@ impl<'a> AppState<'a> {
                                 );
 
                                 let element_id = self.editor_state.create_shape(circle);
-
                                 self.mouse_state.set_selected_shape(Some(element_id));
 
                                 // Clear state
@@ -436,6 +471,21 @@ impl<'a> AppState<'a> {
 
     pub(crate) fn render(&self) -> Result<(), wgpu::SurfaceError> {
         let (output, view, mut encoder) = self.gpu_allocator.begin_frame()?;
+
+        // compute pass 1: apply color corrections
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("color_correct_compute_pass"),
+                timestamp_writes: None,
+            });
+
+            compute_pass.set_pipeline(&self.color_correct_pipeline);
+            compute_pass.set_bind_group(0, &self.color_correct_bind_group, &[]);
+
+            let workgroup_count_x = (self.size.width + 15) / 16;
+            let workgroup_count_y = (self.size.height + 15) / 16;
+            compute_pass.dispatch_workgroups(workgroup_count_x, workgroup_count_y, 1);
+        }
 
         // First pass: Render shapes to shape texture
         {
