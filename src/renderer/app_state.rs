@@ -382,11 +382,11 @@ impl<'a> AppState<'a> {
                     #[cfg(target_os = "macos")]
                     if self.modifiers.state().super_key() {
                         let circle = self.mouse_state.selected_shape().map(|i| {
-                            self.editor_state
+                            *self
+                                .editor_state
                                 .get_element_by_id(i)
                                 .expect("selected id must be valid")
                                 .inner()
-                                .clone()
                         });
 
                         self.mouse_state.set_clipboard_shape(circle);
@@ -486,8 +486,8 @@ impl<'a> AppState<'a> {
     pub(crate) fn render(&self) -> Result<(), wgpu::SurfaceError> {
         let (output, view, mut encoder) = self.gpu_allocator.begin_frame()?;
 
-        let workgroup_count_x = (self.size.width + 15) / 16;
-        let workgroup_count_y = (self.size.height + 15) / 16;
+        let workgroup_count_x = self.size.width.div_ceil(16);
+        let workgroup_count_y = self.size.height.div_ceil(16);
 
         // Execute effect pipeline - automatically chains all effects with CPU-level conditionals!
         self.effect_pipeline.execute(

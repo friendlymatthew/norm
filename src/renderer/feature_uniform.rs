@@ -176,7 +176,7 @@ impl FeatureUniform {
 }
 
 impl FeatureUniform {
-    pub fn gamma(&self) -> u32 {
+    pub const fn gamma(&self) -> u32 {
         self.gamma
     }
 }

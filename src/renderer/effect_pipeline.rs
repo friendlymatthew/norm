@@ -3,8 +3,10 @@ use anyhow::Result;
 
 use crate::renderer::feature_uniform::FeatureUniform;
 
+pub type DispatchConditionalFn = Box<dyn Fn(&FeatureUniform) -> bool>;
+
 pub struct EffectPipeline {
-    effects: Vec<(ComputeEffect, Box<dyn Fn(&FeatureUniform) -> bool>)>,
+    effects: Vec<(ComputeEffect, DispatchConditionalFn)>,
 
     texture_a: Texture,
     texture_b: Texture,
@@ -30,7 +32,7 @@ impl EffectPipeline {
         EffectPipelineBuilder::new(gpu_allocator, input_texture, width, height)
     }
 
-    pub fn texture_a(&self) -> &Texture {
+    pub const fn texture_a(&self) -> &Texture {
         &self.texture_a
     }
 
@@ -65,7 +67,7 @@ pub struct EffectPipelineBuilder<'a, 'b> {
     input_texture: &'a wgpu::TextureView,
     texture_a: Texture,
     texture_b: Texture,
-    effects: Vec<(ComputeEffect, Box<dyn Fn(&FeatureUniform) -> bool>)>,
+    effects: Vec<(ComputeEffect, DispatchConditionalFn)>,
 }
 
 impl<'a, 'b> EffectPipelineBuilder<'a, 'b> {

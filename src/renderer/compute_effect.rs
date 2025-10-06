@@ -10,7 +10,7 @@ pub struct ComputeEffect {
 }
 
 impl ComputeEffect {
-    pub fn builder<'a>(label: &'a str) -> ComputeEffectBuilder<'a> {
+    pub const fn builder<'a>(label: &'a str) -> ComputeEffectBuilder<'a> {
         ComputeEffectBuilder {
             label,
             shader_source: None,
@@ -50,12 +50,12 @@ pub struct ComputeEffectBuilder<'a> {
 }
 
 impl<'a> ComputeEffectBuilder<'a> {
-    pub fn with_shader(mut self, source: &'a str) -> Self {
+    pub const fn with_shader(mut self, source: &'a str) -> Self {
         self.shader_source = Some(source);
         self
     }
 
-    pub fn _with_entry_point(mut self, entry_point: &'a str) -> Self {
+    pub const fn _with_entry_point(mut self, entry_point: &'a str) -> Self {
         self.entry_point = entry_point;
         self
     }

@@ -63,8 +63,8 @@ impl MouseState {
         self.drag_offset = offset;
     }
 
-    pub(crate) fn clipboard_shape(&self) -> Option<Circle> {
-        self.clipboard_shape.clone()
+    pub(crate) const fn clipboard_shape(&self) -> Option<Circle> {
+        self.clipboard_shape
     }
 
     pub(crate) const fn set_clipboard_shape(&mut self, element_id: Option<Circle>) {
