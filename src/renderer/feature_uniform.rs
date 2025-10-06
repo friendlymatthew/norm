@@ -174,3 +174,9 @@ impl FeatureUniform {
         }
     }
 }
+
+impl FeatureUniform {
+    pub fn gamma(&self) -> u32 {
+        self.gamma
+    }
+}

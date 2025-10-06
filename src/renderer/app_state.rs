@@ -1,6 +1,7 @@
 use crate::{
     image::grammar::Image,
     renderer::{
+        compute_effect::ComputeEffect,
         draw_uniform::DrawUniform,
         feature_uniform::{FeatureUniform, TransformAction},
         gpu_state::GpuResourceAllocator,
@@ -8,6 +9,7 @@ use crate::{
         shader::{Shader, TextureResource},
         shape::{compute_distance, Circle, EditorState},
         shape_uniform::{CircleData, ShapeUniform, MAX_CIRCLES},
+        Texture,
     },
 };
 use anyhow::Result;
@@ -39,9 +41,9 @@ pub struct AppState<'a> {
     pub shape_uniform: ShapeUniform,
     pub circle_storage_buffer: wgpu::Buffer,
 
-    pub color_correct_pipeline: wgpu::ComputePipeline,
-    pub color_correct_bind_group: wgpu::BindGroup,
-    pub output_texture: crate::renderer::Texture,
+    pub gamma_effect: ComputeEffect,
+    pub grayscale_effect: ComputeEffect,
+    pub invert_effect: ComputeEffect,
 }
 
 impl<'a> AppState<'a> {
@@ -72,43 +74,36 @@ impl<'a> AppState<'a> {
         let circle_storage_buffer =
             gpu_allocator.create_storage_buffer("circle_storage", &empty_circles)?;
 
-        let color_correct_pipeline = gpu_allocator.create_compute_pipeline(
-            "color_correct_compute",
-            include_str!("color_correct_compute.wgsl"),
-            "cs_main",
-        );
+        let texture_a = gpu_allocator.create_storage_texture("texture_a", size.width, size.height);
 
-        let output_texture =
-            gpu_allocator.create_storage_texture("processed_texture", size.width, size.height);
+        // individual compute effects
+        let gamma_effect = ComputeEffect::builder("gamma")
+            .with_shader(include_str!("gamma_correct_compute.wgsl"))
+            .with_uniform(feature_uniform.gamma())
+            .build(
+                &gpu_allocator.device,
+                &image_texture_resource.resource.view,
+                &texture_a.view,
+            )?;
 
-        let color_correct_bind_group = {
-            let bind_group_layout = color_correct_pipeline.get_bind_group_layout(0);
-            gpu_allocator
-                .device
-                .create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: &bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::TextureView(
-                                &image_texture_resource.resource.view,
-                            ),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&output_texture.view),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 2,
-                            resource: feature_uniform_resource.resource.as_entire_binding(),
-                        },
-                    ],
-                    label: Some("color_correct_bind_group"),
-                })
-        };
+        let grayscale_effect = ComputeEffect::builder("grayscale")
+            .with_shader(include_str!("grayscale_compute.wgsl"))
+            .build(
+                &gpu_allocator.device,
+                &image_texture_resource.resource.view,
+                &texture_a.view,
+            )?;
+
+        let invert_effect = ComputeEffect::builder("invert")
+            .with_shader(include_str!("invert_compute.wgsl"))
+            .build(
+                &gpu_allocator.device,
+                &image_texture_resource.resource.view,
+                &texture_a.view,
+            )?;
 
         let processed_texture_resource = gpu_allocator
-            .create_texture_resource_from_existing("processed_texture_ref", &output_texture);
+            .create_texture_resource_from_existing("processed_texture_ref", &texture_a);
 
         let shape_texture_for_image = gpu_allocator.create_texture_resource_from_existing(
             "shape_texture_ref",
@@ -147,9 +142,9 @@ impl<'a> AppState<'a> {
             shape_render_texture,
             shape_uniform,
             circle_storage_buffer,
-            color_correct_pipeline,
-            color_correct_bind_group,
-            output_texture,
+            gamma_effect,
+            grayscale_effect,
+            invert_effect,
         })
     }
 
@@ -428,6 +423,10 @@ impl<'a> AppState<'a> {
     }
 
     pub(crate) fn update(&mut self) {
+        // Update gamma effect uniform
+        self.gamma_effect
+            .update_uniform(&self.gpu_allocator.queue, self.feature_uniform.gamma());
+
         // Update image shader uniforms
         let uniform_resources = &self.image_shader.uniform_resources;
         self.gpu_allocator
@@ -472,19 +471,23 @@ impl<'a> AppState<'a> {
     pub(crate) fn render(&self) -> Result<(), wgpu::SurfaceError> {
         let (output, view, mut encoder) = self.gpu_allocator.begin_frame()?;
 
-        // compute pass 1: apply color corrections
+        // Compute shader pass
         {
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("color_correct_compute_pass"),
-                timestamp_writes: None,
-            });
-
-            compute_pass.set_pipeline(&self.color_correct_pipeline);
-            compute_pass.set_bind_group(0, &self.color_correct_bind_group, &[]);
-
+            // todo, these color effects work independently from each other
+            // how do we pass intermediate textures?
             let workgroup_count_x = (self.size.width + 15) / 16;
             let workgroup_count_y = (self.size.height + 15) / 16;
-            compute_pass.dispatch_workgroups(workgroup_count_x, workgroup_count_y, 1);
+
+            if self.feature_uniform.invert() {
+                self.invert_effect
+                    .dispatch(&mut encoder, workgroup_count_x, workgroup_count_y);
+            } else if self.feature_uniform.grayscale() {
+                self.grayscale_effect
+                    .dispatch(&mut encoder, workgroup_count_x, workgroup_count_y);
+            } else {
+                self.gamma_effect
+                    .dispatch(&mut encoder, workgroup_count_x, workgroup_count_y);
+            }
         }
 
         // First pass: Render shapes to shape texture
