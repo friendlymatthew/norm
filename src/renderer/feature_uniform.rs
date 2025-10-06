@@ -1,14 +1,14 @@
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct FeatureUniform {
-    grayscale: u32,
+    grayscale: u32, // not needed
     // sepia: u32,
-    invert: u32,
-    gamma: u32,
+    invert: u32, // not needed
+    gamma: u32,  // not needed
     blur: u32,
     blur_radius: u32,
-    width: u32,
-    height: u32,
+    width: u32,  // not needed
+    height: u32, // not needed
     sharpen: u32,
     sharpen_factor: u32,
     edge_detect: u32,
