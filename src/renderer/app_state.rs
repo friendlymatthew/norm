@@ -306,128 +306,107 @@ impl<'a> AppState<'a> {
                         ..
                     },
                 ..
-            } => match (keycode, state) {
-                (KeyCode::KeyA, ElementState::Pressed) => {
-                    draw_uniform.toggle_crosshair();
+            } => {
+                let super_key_pressed = if cfg!(target_os = "macos") {
+                    self.modifiers.state().super_key()
+                } else {
+                    self.modifiers.state().control_key()
+                };
 
-                    if draw_uniform.crosshair() {
-                        self.window.set_cursor_icon(CursorIcon::Crosshair);
-                    } else {
-                        self.window.set_cursor_icon(CursorIcon::Default);
-                    }
-                }
-                // (KeyCode::KeyC, ElementState::Pressed) => {
-                //     feature_uniform.reset_features();
-                // }
-                (KeyCode::KeyB, ElementState::Pressed) => {
-                    feature_uniform.toggle_blur();
-                }
-                (KeyCode::ArrowUp, ElementState::Pressed) => {
-                    if feature_uniform.blur() {
-                        feature_uniform.increase_blur_radius();
-                    }
+                match (keycode, state) {
+                    (KeyCode::KeyA, ElementState::Pressed) => {
+                        draw_uniform.toggle_crosshair();
 
-                    if feature_uniform.sharpen() {
-                        feature_uniform.increase_sharpen_factor();
+                        if draw_uniform.crosshair() {
+                            self.window.set_cursor_icon(CursorIcon::Crosshair);
+                        } else {
+                            self.window.set_cursor_icon(CursorIcon::Default);
+                        }
                     }
-                }
-                (KeyCode::ArrowDown, ElementState::Pressed) => {
-                    if feature_uniform.blur() {
-                        feature_uniform.decrease_blur_radius();
+                    // (KeyCode::KeyC, ElementState::Pressed) => {
+                    //     feature_uniform.reset_features();
+                    // }
+                    (KeyCode::KeyB, ElementState::Pressed) => {
+                        feature_uniform.toggle_blur();
                     }
+                    (KeyCode::ArrowUp, ElementState::Pressed) => {
+                        if feature_uniform.blur() {
+                            feature_uniform.increase_blur_radius();
+                        }
 
-                    if feature_uniform.sharpen() {
-                        feature_uniform.decrease_sharpen_factor();
+                        if feature_uniform.sharpen() {
+                            feature_uniform.increase_sharpen_factor();
+                        }
                     }
-                }
-                (KeyCode::KeyG, ElementState::Pressed) => {
-                    feature_uniform.toggle_grayscale();
-                }
-                (KeyCode::KeyS, ElementState::Pressed) => {
-                    feature_uniform.toggle_sharpen();
-                }
-                (KeyCode::KeyI, ElementState::Pressed) => {
-                    feature_uniform.toggle_invert();
-                }
-                (KeyCode::KeyE, ElementState::Pressed) => {
-                    feature_uniform.toggle_edge_detect();
-                }
-                (KeyCode::KeyX, ElementState::Pressed) => {
-                    feature_uniform.apply_transform(TransformAction::FlipX);
-                }
-                (KeyCode::KeyY, ElementState::Pressed) => {
-                    feature_uniform.apply_transform(TransformAction::FlipY);
-                }
-                (KeyCode::Delete, ElementState::Pressed)
-                | (KeyCode::Backspace, ElementState::Pressed) => {
-                    // Delete the selected circle
-                    if let Some(selected_element_id) = self.mouse_state.selected_shape() {
-                        self.editor_state.remove_shape_by_id(selected_element_id);
-                        self.mouse_state.set_selected_shape(None);
-                        self.mouse_state.set_dragging_shape(false);
-                    }
-                }
-                (KeyCode::KeyZ, ElementState::Pressed) => {
-                    #[cfg(target_os = "macos")]
-                    if self.modifiers.state().super_key() {
-                        self.editor_state.undo();
-                    }
+                    (KeyCode::ArrowDown, ElementState::Pressed) => {
+                        if feature_uniform.blur() {
+                            feature_uniform.decrease_blur_radius();
+                        }
 
-                    #[cfg(not(target_os = "macos"))]
-                    if self.modifiers.state().control_key() {
-                        self.editor_state.undo();
+                        if feature_uniform.sharpen() {
+                            feature_uniform.decrease_sharpen_factor();
+                        }
                     }
-                }
-                (KeyCode::KeyC, ElementState::Pressed) => {
-                    #[cfg(target_os = "macos")]
-                    if self.modifiers.state().super_key() {
-                        let circle = self.mouse_state.selected_shape().map(|i| {
-                            *self
-                                .editor_state
-                                .get_element_by_id(i)
-                                .expect("selected id must be valid")
-                                .inner()
-                        });
-
-                        self.mouse_state.set_clipboard_shape(circle);
+                    (KeyCode::KeyG, ElementState::Pressed) => {
+                        feature_uniform.toggle_grayscale();
                     }
-
-                    #[cfg(not(target_os = "macos"))]
-                    if self.modifiers.state().control_key() {
-                        let circle = self.mouse_state.selected_shape().map(|i| {
-                            self.editor_state
-                                .get_element_by_id(i)
-                                .expect("selected id must be valid")
-                                .inner()
-                                .clone()
-                        });
-
-                        self.mouse_state.set_clipboard_shape(circle);
+                    (KeyCode::KeyS, ElementState::Pressed) => {
+                        feature_uniform.toggle_sharpen();
                     }
-                }
-                (KeyCode::KeyV, ElementState::Pressed) => {
-                    let window_dimensions = (self.size.width as f32, self.size.height as f32);
+                    (KeyCode::KeyI, ElementState::Pressed) => {
+                        feature_uniform.toggle_invert();
+                    }
+                    (KeyCode::KeyE, ElementState::Pressed) => {
+                        feature_uniform.toggle_edge_detect();
+                    }
+                    (KeyCode::KeyX, ElementState::Pressed) => {
+                        feature_uniform.apply_transform(TransformAction::FlipX);
+                    }
+                    (KeyCode::KeyY, ElementState::Pressed) => {
+                        feature_uniform.apply_transform(TransformAction::FlipY);
+                    }
+                    (KeyCode::Delete, ElementState::Pressed)
+                    | (KeyCode::Backspace, ElementState::Pressed) => {
+                        // Delete the selected circle
+                        if let Some(selected_element_id) = self.mouse_state.selected_shape() {
+                            self.editor_state.remove_shape_by_id(selected_element_id);
+                            self.mouse_state.set_selected_shape(None);
+                            self.mouse_state.set_dragging_shape(false);
+                        }
+                    }
+                    (KeyCode::KeyZ, ElementState::Pressed) => {
+                        if super_key_pressed {
+                            self.editor_state.undo();
+                        }
+                    }
+                    (KeyCode::KeyC, ElementState::Pressed) => {
+                        if super_key_pressed {
+                            let circle = self.mouse_state.selected_shape().map(|i| {
+                                *self
+                                    .editor_state
+                                    .get_element_by_id(i)
+                                    .expect("selected id must be valid")
+                                    .inner()
+                            });
 
-                    #[cfg(target_os = "macos")]
-                    if self.modifiers.state().super_key() {
-                        if let Some(circle) = self.mouse_state.clipboard_shape() {
-                            let copied_element_id =
-                                self.editor_state.copy_shape(circle, window_dimensions);
-                            self.mouse_state.set_selected_shape(Some(copied_element_id));
+                            self.mouse_state.set_clipboard_shape(circle);
                         }
                     }
 
-                    #[cfg(not(target_os = "macos"))]
-                    if self.modifiers.state().control_key() {
-                        if let Some(circle) = self.mouse_state.clipboard_shape() {
-                            let copied_element_id =
-                                self.editor_state.copy_shape(circle, window_dimensions);
-                            self.mouse_state.set_selected_shape(Some(copied_element_id));
+                    (KeyCode::KeyV, ElementState::Pressed) => {
+                        let window_dimensions = (self.size.width as f32, self.size.height as f32);
+
+                        if super_key_pressed {
+                            if let Some(circle) = self.mouse_state.clipboard_shape() {
+                                let copied_element_id =
+                                    self.editor_state.copy_shape(circle, window_dimensions);
+                                self.mouse_state.set_selected_shape(Some(copied_element_id));
+                            }
                         }
                     }
+                    _ => return false,
                 }
-                _ => return false,
-            },
+            }
             _ => return false,
         }
 
