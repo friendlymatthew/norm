@@ -1,15 +1,14 @@
 use crate::{
     image::grammar::Image,
     renderer::{
-        compute_effect::ComputeEffect,
         draw_uniform::DrawUniform,
+        effect_pipeline::EffectPipeline,
         feature_uniform::{FeatureUniform, TransformAction},
         gpu_state::GpuResourceAllocator,
         mouse_state::MouseState,
         shader::{Shader, TextureResource},
         shape::{compute_distance, Circle, EditorState},
         shape_uniform::{CircleData, ShapeUniform, MAX_CIRCLES},
-        Texture,
     },
 };
 use anyhow::Result;
@@ -41,9 +40,8 @@ pub struct AppState<'a> {
     pub shape_uniform: ShapeUniform,
     pub circle_storage_buffer: wgpu::Buffer,
 
-    pub gamma_effect: ComputeEffect,
-    pub grayscale_effect: ComputeEffect,
-    pub invert_effect: ComputeEffect,
+    pub effect_pipeline: EffectPipeline,
+    pub gamma_effect_index: usize,
 }
 
 impl<'a> AppState<'a> {
@@ -74,36 +72,51 @@ impl<'a> AppState<'a> {
         let circle_storage_buffer =
             gpu_allocator.create_storage_buffer("circle_storage", &empty_circles)?;
 
-        let texture_a = gpu_allocator.create_storage_texture("texture_a", size.width, size.height);
+        // Build effect pipeline with copy-back after each conditional effect
+        // This ensures output is always in texture_a
+        let effect_pipeline = EffectPipeline::builder(
+            &gpu_allocator,
+            &image_texture_resource.resource.view,
+            size.width,
+            size.height,
+        )
+        .add_effect(
+            "gamma",
+            include_str!("gamma_correct_compute.wgsl"),
+            Some(feature_uniform.gamma()),
+            |_| true, // Always run (base pass)
+        )?
+        .add_effect(
+            "grayscale",
+            include_str!("grayscale_compute.wgsl"),
+            None::<u32>,
+            |f| f.grayscale(),
+        )?
+        .add_effect(
+            "copy_after_grayscale",
+            include_str!("copy_compute.wgsl"),
+            None::<u32>,
+            |f| f.grayscale(),
+        )?
+        .add_effect(
+            "invert",
+            include_str!("invert_compute.wgsl"),
+            None::<u32>,
+            |f| f.invert(),
+        )?
+        .add_effect(
+            "copy_after_invert",
+            include_str!("copy_compute.wgsl"),
+            None::<u32>,
+            |f| f.invert(),
+        )?
+        .build()?;
+        let gamma_effect_index = 0;
 
-        // individual compute effects
-        let gamma_effect = ComputeEffect::builder("gamma")
-            .with_shader(include_str!("gamma_correct_compute.wgsl"))
-            .with_uniform(feature_uniform.gamma())
-            .build(
-                &gpu_allocator.device,
-                &image_texture_resource.resource.view,
-                &texture_a.view,
-            )?;
-
-        let grayscale_effect = ComputeEffect::builder("grayscale")
-            .with_shader(include_str!("grayscale_compute.wgsl"))
-            .build(
-                &gpu_allocator.device,
-                &image_texture_resource.resource.view,
-                &texture_a.view,
-            )?;
-
-        let invert_effect = ComputeEffect::builder("invert")
-            .with_shader(include_str!("invert_compute.wgsl"))
-            .build(
-                &gpu_allocator.device,
-                &image_texture_resource.resource.view,
-                &texture_a.view,
-            )?;
-
-        let processed_texture_resource = gpu_allocator
-            .create_texture_resource_from_existing("processed_texture_ref", &texture_a);
+        let processed_texture_a = gpu_allocator.create_texture_resource_from_existing(
+            "processed_texture_a",
+            effect_pipeline.texture_a(),
+        );
 
         let shape_texture_for_image = gpu_allocator.create_texture_resource_from_existing(
             "shape_texture_ref",
@@ -113,7 +126,7 @@ impl<'a> AppState<'a> {
         let image_shader = gpu_allocator.create_shader(
             "image_shader",
             include_str!("image_shader.wgsl"),
-            vec![processed_texture_resource, shape_texture_for_image],
+            vec![processed_texture_a, shape_texture_for_image],
             vec![feature_uniform_resource, draw_uniform_resource],
         );
 
@@ -142,9 +155,8 @@ impl<'a> AppState<'a> {
             shape_render_texture,
             shape_uniform,
             circle_storage_buffer,
-            gamma_effect,
-            grayscale_effect,
-            invert_effect,
+            effect_pipeline,
+            gamma_effect_index,
         })
     }
 
@@ -363,7 +375,7 @@ impl<'a> AppState<'a> {
 
                     #[cfg(not(target_os = "macos"))]
                     if self.modifiers.state().control_key() {
-                        self.revision_stack.undo();
+                        self.editor_state.undo();
                     }
                 }
                 (KeyCode::KeyC, ElementState::Pressed) => {
@@ -423,9 +435,12 @@ impl<'a> AppState<'a> {
     }
 
     pub(crate) fn update(&mut self) {
-        // Update gamma effect uniform
-        self.gamma_effect
-            .update_uniform(&self.gpu_allocator.queue, self.feature_uniform.gamma());
+        // Update gamma effect uniform in the pipeline
+        self.effect_pipeline.update_effect_uniform(
+            &self.gpu_allocator.queue,
+            self.gamma_effect_index,
+            self.feature_uniform.gamma(),
+        );
 
         // Update image shader uniforms
         let uniform_resources = &self.image_shader.uniform_resources;
@@ -471,24 +486,16 @@ impl<'a> AppState<'a> {
     pub(crate) fn render(&self) -> Result<(), wgpu::SurfaceError> {
         let (output, view, mut encoder) = self.gpu_allocator.begin_frame()?;
 
-        // Compute shader pass
-        {
-            // todo, these color effects work independently from each other
-            // how do we pass intermediate textures?
-            let workgroup_count_x = (self.size.width + 15) / 16;
-            let workgroup_count_y = (self.size.height + 15) / 16;
+        let workgroup_count_x = (self.size.width + 15) / 16;
+        let workgroup_count_y = (self.size.height + 15) / 16;
 
-            if self.feature_uniform.invert() {
-                self.invert_effect
-                    .dispatch(&mut encoder, workgroup_count_x, workgroup_count_y);
-            } else if self.feature_uniform.grayscale() {
-                self.grayscale_effect
-                    .dispatch(&mut encoder, workgroup_count_x, workgroup_count_y);
-            } else {
-                self.gamma_effect
-                    .dispatch(&mut encoder, workgroup_count_x, workgroup_count_y);
-            }
-        }
+        // Execute effect pipeline - automatically chains all effects with CPU-level conditionals!
+        self.effect_pipeline.execute(
+            &self.feature_uniform,
+            &mut encoder,
+            workgroup_count_x,
+            workgroup_count_y,
+        );
 
         // First pass: Render shapes to shape texture
         {

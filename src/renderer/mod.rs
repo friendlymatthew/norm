@@ -5,6 +5,7 @@ pub(crate) use vertex::*;
 mod app_state;
 mod compute_effect;
 mod draw_uniform;
+mod effect_pipeline;
 mod feature_uniform;
 mod gpu_state;
 mod mouse_state;

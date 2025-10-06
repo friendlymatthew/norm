@@ -611,7 +611,9 @@ impl<'a> GpuResourceAllocator<'a> {
         });
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor::default());
+        let sampler = self
+            .device
+            .create_sampler(&wgpu::SamplerDescriptor::default());
 
         Texture {
             texture,

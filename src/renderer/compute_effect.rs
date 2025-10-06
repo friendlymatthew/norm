@@ -55,7 +55,7 @@ impl<'a> ComputeEffectBuilder<'a> {
         self
     }
 
-    pub fn with_entry_point(mut self, entry_point: &'a str) -> Self {
+    pub fn _with_entry_point(mut self, entry_point: &'a str) -> Self {
         self.entry_point = entry_point;
         self
     }
@@ -99,7 +99,6 @@ impl<'a> ComputeEffectBuilder<'a> {
                 },
                 count: None,
             },
-            // output storage texture
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStages::COMPUTE,
