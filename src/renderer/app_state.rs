@@ -1,6 +1,7 @@
 use crate::{
     image::grammar::Image,
     renderer::{
+        camera::Camera,
         draw_uniform::DrawUniform,
         effect_pipeline::EffectPipeline,
         feature_uniform::{FeatureUniform, TransformAction},
@@ -14,7 +15,7 @@ use crate::{
 use anyhow::Result;
 use winit::{
     dpi::PhysicalSize,
-    event::{ElementState, Event, KeyEvent, Modifiers, MouseButton, WindowEvent},
+    event::{ElementState, Event, KeyEvent, Modifiers, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
     window::{CursorIcon, Window, WindowBuilder},
@@ -30,6 +31,7 @@ pub struct AppState<'a> {
 
     pub feature_uniform: FeatureUniform,
     pub draw_uniform: DrawUniform,
+    pub camera: Camera,
     pub mouse_state: MouseState,
     pub editor_state: EditorState,
     pub modifiers: Modifiers,
@@ -60,6 +62,8 @@ impl<'a> AppState<'a> {
         let draw_uniform = DrawUniform::new();
         let draw_uniform_resource =
             gpu_allocator.create_uniform_resource("draw_uniform", draw_uniform)?;
+
+        let camera = Camera::new();
 
         let shape_render_texture =
             gpu_allocator.create_render_texture("shape_texture", size.width, size.height);
@@ -147,6 +151,7 @@ impl<'a> AppState<'a> {
             size,
             feature_uniform,
             draw_uniform,
+            camera,
             mouse_state,
             editor_state,
             modifiers,
@@ -179,6 +184,22 @@ impl<'a> AppState<'a> {
         let feature_uniform = &mut self.feature_uniform;
         let draw_uniform = &mut self.draw_uniform;
 
+        // the state
+        // note to future self: we are probably due for a refactor
+        // right now, application state, inputs, windowing are all coupled together
+        // it would be good to be able to reuse certain commands for instance, think about cut (cmd + x)
+        let mut super_key_pressed = if cfg!(target_os = "macos") {
+            self.modifiers.state().super_key()
+        } else {
+            self.modifiers.state().control_key()
+        };
+
+        let mut draw_mode = draw_uniform.crosshair();
+
+        // some global rules
+        // maybe keep a stack of actions?
+        draw_mode = if super_key_pressed { false } else { draw_mode };
+
         match event {
             WindowEvent::MouseInput { state, button, .. } => {
                 if *button == MouseButton::Left {
@@ -186,7 +207,25 @@ impl<'a> AppState<'a> {
                     self.mouse_state
                         .set_pressed(matches!(state, ElementState::Pressed));
 
-                    if draw_uniform.crosshair() {
+                    // camera panning
+                    if super_key_pressed && !draw_mode {
+                        self.window.set_cursor_icon(CursorIcon::Grab);
+
+                        match (prev_state, self.mouse_state.pressed()) {
+                            (false, true) => {
+                                let (x, y) = self.mouse_state.position();
+                                self.mouse_state.set_camera_pan_start(Some((x, y)));
+                            }
+                            (true, false) => {
+                                self.mouse_state.set_camera_pan_start(None);
+                                self.window.set_cursor_icon(CursorIcon::Default);
+                            }
+                            _ => {}
+                        }
+                        return true;
+                    }
+
+                    if draw_mode {
                         // Crosshair mode: Draw new circles
                         match (prev_state, self.mouse_state.pressed()) {
                             (false, true) => {
@@ -265,10 +304,49 @@ impl<'a> AppState<'a> {
                     }
                 }
             }
+            WindowEvent::MouseWheel { delta, .. } => {
+                match delta {
+                    MouseScrollDelta::LineDelta(_, y) => {
+                        let zoom_speed = 0.1;
+                        let zoom_factor = if *y > 0.0 {
+                            1.0 + zoom_speed
+                        } else if *y < 0.0 {
+                            1.0 - zoom_speed
+                        } else {
+                            1.0
+                        };
+                        self.camera.zoom(zoom_factor);
+                    }
+                    MouseScrollDelta::PixelDelta(pos) => {
+                        // Zoom with two-finger scroll
+                        let zoom_speed = 0.1;
+                        let y = pos.y as f32;
+                        let zoom_factor = if y > 0.0 {
+                            1.0 + zoom_speed * 0.01 * y
+                        } else if y < 0.0 {
+                            1.0 + zoom_speed * 0.01 * y
+                        } else {
+                            1.0
+                        };
+                        self.camera.zoom(zoom_factor);
+                    }
+                };
+            }
             WindowEvent::CursorMoved { position, .. } => {
                 let (x, y) = (position.x as f32, position.y as f32);
 
-                if draw_uniform.crosshair() {
+                if super_key_pressed && self.mouse_state.pressed() {
+                    if let Some((start_x, start_y)) = self.mouse_state.camera_pan_start() {
+                        let delta_x = (x - start_x) / (self.size.width as f32) * 2.0;
+                        let delta_y = -(y - start_y) / (self.size.height as f32) * 2.0; // Invert Y
+
+                        self.camera.pan(delta_x, delta_y);
+
+                        self.mouse_state.set_camera_pan_start(Some((x, y)));
+                    }
+                }
+
+                if draw_mode {
                     // Crosshair mode: Update the preview circle radius
                     if let Some(center) = self.mouse_state.start_drag() {
                         let radius = compute_distance(center, (x, y));
@@ -404,6 +482,9 @@ impl<'a> AppState<'a> {
                             }
                         }
                     }
+                    (KeyCode::KeyR, ElementState::Pressed) => {
+                        self.camera.reset();
+                    }
                     _ => return false,
                 }
             }
@@ -420,6 +501,10 @@ impl<'a> AppState<'a> {
             self.gamma_effect_index,
             self.feature_uniform.gamma(),
         );
+
+        // Update camera in draw uniform
+        self.draw_uniform
+            .update_camera(self.camera.view_projection_matrix());
 
         // Update image shader uniforms
         let uniform_resources = &self.image_shader.uniform_resources;

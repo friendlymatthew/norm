@@ -3,6 +3,7 @@ pub(crate) use texture::*;
 pub(crate) use vertex::*;
 
 mod app_state;
+mod camera;
 mod compute_effect;
 mod draw_uniform;
 mod effect_pipeline;

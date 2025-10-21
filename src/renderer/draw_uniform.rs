@@ -1,10 +1,17 @@
 #[repr(C)]
-#[derive(Debug, Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct DrawUniform {
     pub crosshair: u32,
     pub circle_center_x: f32,
     pub circle_center_y: f32,
     pub circle_radius: f32,
+    pub camera_view_proj: [[f32; 4]; 4],
+}
+
+impl Default for DrawUniform {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DrawUniform {
@@ -14,7 +21,17 @@ impl DrawUniform {
             circle_center_x: 0.0,
             circle_center_y: 0.0,
             circle_radius: 0.0,
+            camera_view_proj: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
         }
+    }
+
+    pub(crate) fn update_camera(&mut self, view_proj: [[f32; 4]; 4]) {
+        self.camera_view_proj = view_proj;
     }
 
     pub(crate) const fn crosshair(&self) -> bool {

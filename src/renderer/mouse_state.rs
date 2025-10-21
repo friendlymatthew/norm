@@ -6,6 +6,7 @@ pub struct MouseState {
     position_x: f32,
     position_y: f32,
     start_drag: Option<(f32, f32)>,
+    camera_pan_start: Option<(f32, f32)>,
     selected_shape: Option<usize>,   // index to the shape stack
     clipboard_shape: Option<Circle>, // index to the shape stack
     dragging_shape: bool,
@@ -69,5 +70,13 @@ impl MouseState {
 
     pub(crate) const fn set_clipboard_shape(&mut self, element_id: Option<Circle>) {
         self.clipboard_shape = element_id;
+    }
+
+    pub(crate) const fn camera_pan_start(&self) -> Option<(f32, f32)> {
+        self.camera_pan_start
+    }
+
+    pub(crate) const fn set_camera_pan_start(&mut self, position: Option<(f32, f32)>) {
+        self.camera_pan_start = position;
     }
 }
