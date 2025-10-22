@@ -30,7 +30,8 @@ impl DrawUniform {
         }
     }
 
-    pub(crate) const fn _update_camera(&mut self, view_proj: [[f32; 4]; 4]) {
+    #[cfg(feature = "camera")]
+    pub(crate) const fn update_camera(&mut self, view_proj: [[f32; 4]; 4]) {
         self.camera_view_proj = view_proj;
     }
 

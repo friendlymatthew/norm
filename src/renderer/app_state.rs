@@ -94,31 +94,31 @@ impl<'a> AppState<'a> {
         )
         .add_effect(
             "gamma",
-            include_str!("gamma_correct_compute.wgsl"),
+            include_str!("shaders/gamma_correct_compute.wgsl"),
             Some(feature_uniform.gamma()),
             |_| true, // Always run (base pass)
         )?
         .add_effect(
             "grayscale",
-            include_str!("grayscale_compute.wgsl"),
+            include_str!("shaders/grayscale_compute.wgsl"),
             None::<u32>,
             |f| f.grayscale(),
         )?
         .add_effect(
             "copy_after_grayscale",
-            include_str!("copy_compute.wgsl"),
+            include_str!("shaders/copy_compute.wgsl"),
             None::<u32>,
             |f| f.grayscale(),
         )?
         .add_effect(
             "invert",
-            include_str!("invert_compute.wgsl"),
+            include_str!("shaders/invert_compute.wgsl"),
             None::<u32>,
             |f| f.invert(),
         )?
         .add_effect(
             "copy_after_invert",
-            include_str!("copy_compute.wgsl"),
+            include_str!("shaders/copy_compute.wgsl"),
             None::<u32>,
             |f| f.invert(),
         )?
@@ -137,14 +137,14 @@ impl<'a> AppState<'a> {
 
         let image_shader = gpu_allocator.create_shader(
             "image_shader",
-            include_str!("image_shader.wgsl"),
+            include_str!("shaders/image_shader.wgsl"),
             vec![processed_texture_a, shape_texture_for_image],
             vec![feature_uniform_resource, draw_uniform_resource],
         );
 
         let shape_shader = gpu_allocator.create_shape_shader(
             "shape_shader",
-            include_str!("shape_shader.wgsl"),
+            include_str!("shaders/shape_shader.wgsl"),
             shape_uniform_resource,
             &circle_storage_buffer,
         );
@@ -222,7 +222,6 @@ impl<'a> AppState<'a> {
                     // camera panning
                     #[cfg(feature = "camera")]
                     if super_key_pressed {
-                        dbg!("pressed");
                         self.window.set_cursor_icon(CursorIcon::Grab);
 
                         match (prev_state, self.mouse_state.pressed()) {
