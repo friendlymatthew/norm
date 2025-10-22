@@ -3,6 +3,7 @@ pub(crate) use texture::*;
 pub(crate) use vertex::*;
 
 mod app_state;
+#[cfg(feature = "camera")]
 mod camera;
 mod compute_effect;
 mod draw_uniform;

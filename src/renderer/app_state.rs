@@ -1,7 +1,6 @@
 use crate::{
     image::grammar::Image,
     renderer::{
-        camera::Camera,
         draw_uniform::DrawUniform,
         effect_pipeline::EffectPipeline,
         feature_uniform::{FeatureUniform, TransformAction},
@@ -12,10 +11,17 @@ use crate::{
         shape_uniform::{CircleData, ShapeUniform, MAX_CIRCLES},
     },
 };
+
+#[cfg(feature = "camera")]
+use crate::renderer::camera::Camera;
+
+#[cfg(feature = "camera")]
+use winit::event::MouseScrollDelta;
+
 use anyhow::Result;
 use winit::{
     dpi::PhysicalSize,
-    event::{ElementState, Event, KeyEvent, Modifiers, MouseButton, MouseScrollDelta, WindowEvent},
+    event::{ElementState, Event, KeyEvent, Modifiers, MouseButton,  WindowEvent},
     event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
     window::{CursorIcon, Window, WindowBuilder},
@@ -31,6 +37,7 @@ pub struct AppState<'a> {
 
     pub feature_uniform: FeatureUniform,
     pub draw_uniform: DrawUniform,
+    #[cfg(feature = "camera")]
     pub camera: Camera,
     pub mouse_state: MouseState,
     pub editor_state: EditorState,
@@ -63,6 +70,7 @@ impl<'a> AppState<'a> {
         let draw_uniform_resource =
             gpu_allocator.create_uniform_resource("draw_uniform", draw_uniform)?;
 
+        #[cfg(feature = "camera")]
         let camera = Camera::new();
 
         let shape_render_texture =
@@ -151,6 +159,7 @@ impl<'a> AppState<'a> {
             size,
             feature_uniform,
             draw_uniform,
+            #[cfg(feature = "camera")]
             camera,
             mouse_state,
             editor_state,
@@ -188,17 +197,16 @@ impl<'a> AppState<'a> {
         // note to future self: we are probably due for a refactor
         // right now, application state, inputs, windowing are all coupled together
         // it would be good to be able to reuse certain commands for instance, think about cut (cmd + x)
-        let mut super_key_pressed = if cfg!(target_os = "macos") {
+        let super_key_pressed = if cfg!(target_os = "macos") {
             self.modifiers.state().super_key()
         } else {
             self.modifiers.state().control_key()
         };
 
-        let mut draw_mode = draw_uniform.crosshair();
-
         // some global rules
         // maybe keep a stack of actions?
-        draw_mode = if super_key_pressed { false } else { draw_mode };
+
+        let draw_mode = if super_key_pressed { false } else { draw_uniform.crosshair() };
 
         match event {
             WindowEvent::MouseInput { state, button, .. } => {
@@ -208,7 +216,9 @@ impl<'a> AppState<'a> {
                         .set_pressed(matches!(state, ElementState::Pressed));
 
                     // camera panning
-                    if super_key_pressed && !draw_mode {
+                    #[cfg(feature = "camera")]
+                    if super_key_pressed {
+                        dbg!("pressed");
                         self.window.set_cursor_icon(CursorIcon::Grab);
 
                         match (prev_state, self.mouse_state.pressed()) {
@@ -304,6 +314,7 @@ impl<'a> AppState<'a> {
                     }
                 }
             }
+            #[cfg(feature = "camera")]
             WindowEvent::MouseWheel { delta, .. } => {
                 match delta {
                     MouseScrollDelta::LineDelta(_, y) => {
@@ -335,6 +346,7 @@ impl<'a> AppState<'a> {
             WindowEvent::CursorMoved { position, .. } => {
                 let (x, y) = (position.x as f32, position.y as f32);
 
+                #[cfg(feature = "camera")]
                 if super_key_pressed && self.mouse_state.pressed() {
                     if let Some((start_x, start_y)) = self.mouse_state.camera_pan_start() {
                         let delta_x = (x - start_x) / (self.size.width as f32) * 2.0;
@@ -482,6 +494,7 @@ impl<'a> AppState<'a> {
                             }
                         }
                     }
+                    #[cfg(feature = "camera")]
                     (KeyCode::KeyR, ElementState::Pressed) => {
                         self.camera.reset();
                     }
@@ -503,6 +516,7 @@ impl<'a> AppState<'a> {
         );
 
         // Update camera in draw uniform
+        #[cfg(feature = "camera")]
         self.draw_uniform
             .update_camera(self.camera.view_projection_matrix());
 

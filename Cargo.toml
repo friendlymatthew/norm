@@ -1,5 +1,5 @@
 [package]
-name = "norm"
+name = "normeditor"
 authors = ["Matthew Kim"]
 version = "0.1.1"
 edition = "2021"
@@ -50,6 +50,7 @@ codegen-units = 1
 
 [features]
 time = []
+camera = []
 
 [dependencies]
 crc32fast = "1.4.2"

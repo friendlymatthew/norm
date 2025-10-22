@@ -25,6 +25,8 @@ cargo r --release ./tests/obama.png
 ### Additional Scripts
 
 ```bash
+# Run the renderer with an experimental camera
+cargo r --features camera -- ./tests/obama.png
 
 # Profile the decoder
 cargo b --release && samply record ./target/release/norm_decode_png ./tests/reagan.png
