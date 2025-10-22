@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use norm::{
+use normeditor::{
     image::{grammar::ImageKind, ImageReader},
     renderer,
 };

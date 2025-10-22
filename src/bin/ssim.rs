@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use norm::png::{grammar::Png, PngDecoder};
+use normeditor::png::{grammar::Png, PngDecoder};
 use std::{fs, time::Instant};
 
 fn read_png(image_path: &str) -> Result<Png> {

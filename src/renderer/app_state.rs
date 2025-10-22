@@ -21,7 +21,7 @@ use winit::event::MouseScrollDelta;
 use anyhow::Result;
 use winit::{
     dpi::PhysicalSize,
-    event::{ElementState, Event, KeyEvent, Modifiers, MouseButton,  WindowEvent},
+    event::{ElementState, Event, KeyEvent, Modifiers, MouseButton, WindowEvent},
     event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
     window::{CursorIcon, Window, WindowBuilder},
@@ -206,7 +206,11 @@ impl<'a> AppState<'a> {
         // some global rules
         // maybe keep a stack of actions?
 
-        let draw_mode = if super_key_pressed { false } else { draw_uniform.crosshair() };
+        let draw_mode = if super_key_pressed {
+            false
+        } else {
+            draw_uniform.crosshair()
+        };
 
         match event {
             WindowEvent::MouseInput { state, button, .. } => {

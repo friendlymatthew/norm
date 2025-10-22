@@ -1,5 +1,5 @@
 use anyhow::Result;
-use norm::font::{
+use normeditor::font::{
     grammar::{Glyph, GlyphData, SimpleGlyph},
     shaper::TrueTypeFontShaper,
     TrueTypeFontParser,
@@ -170,7 +170,7 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use norm::font::grammar::SimpleGlyphFlag;
+    use normeditor::font::grammar::SimpleGlyphFlag;
 
     #[test]
     fn draw_implicit_points() {

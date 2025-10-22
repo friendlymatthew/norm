@@ -31,7 +31,7 @@ impl From<bool> for Precision {
 #[derive(Debug)]
 pub struct QuantizationTable {
     pub flag: u8,
-    pub table_elements: [u16; QuantizationTable::NUM_ELEMENTS],
+    pub table_elements: [u16; Self::NUM_ELEMENTS],
 }
 
 impl QuantizationTable {

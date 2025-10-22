@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use comfy_table::{Attribute, Cell, Color, Table};
-use norm::{
+use normeditor::{
     png::{grammar::Png, PngDecoder},
     test_file_parser::{parse_test_file, PNGSuiteTestCase},
 };
