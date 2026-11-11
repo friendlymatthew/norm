@@ -1,8 +1,9 @@
 #[cfg(feature = "time")]
 use crate::util::event_log::{log_event, Event};
 use crate::{
+    compression::ZlibDecoder,
     image::grammar::ColorType,
-    impl_read_for_datatype, impl_read_slice,
+    impl_read_for_datatype_be, impl_read_slice,
     png::{
         crc32::compute_crc,
         grammar::{Chunk, ImageHeader, Png},
@@ -10,10 +11,9 @@ use crate::{
     },
 };
 use anyhow::{bail, ensure, Result};
-use flate2::read::ZlibDecoder;
 #[cfg(feature = "time")]
 use std::time::Instant;
-use std::{borrow::Cow, collections::BTreeMap, io::Read};
+use std::{borrow::Cow, collections::BTreeMap};
 
 #[derive(Debug)]
 pub struct PngDecoder<'a> {
@@ -81,9 +81,7 @@ impl<'a> PngDecoder<'a> {
         #[cfg(feature = "time")]
         let c = Instant::now();
 
-        let mut zlib_decoder = ZlibDecoder::new(&compressed_stream[..]);
-        let mut input_buffer = Vec::new();
-        zlib_decoder.read_to_end(&mut input_buffer)?;
+        let input_buffer = ZlibDecoder::new(&compressed_stream[..]).decode()?;
 
         #[cfg(feature = "time")]
         log_event("", Event::FlateDecompress, Some(c.elapsed()));
@@ -227,17 +225,9 @@ impl<'a> PngDecoder<'a> {
         Ok(())
     }
 
-    impl_read_for_datatype!(read_u8, u8);
-    impl_read_for_datatype!(read_u32, u32);
+    impl_read_for_datatype_be!(read_u8, u8);
+    impl_read_for_datatype_be!(read_u32, u32);
     impl_read_slice!();
-
-    fn read_slice_until(&mut self, stop: u8) -> Result<&'a [u8]> {
-        let cursor_start = self.cursor;
-
-        while self.read_u8()? != stop {}
-
-        Ok(&self.data[cursor_start..self.cursor - 1])
-    }
 }
 
 #[cfg(test)]

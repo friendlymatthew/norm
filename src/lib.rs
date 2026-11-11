@@ -1,8 +1,12 @@
 #![warn(clippy::nursery)]
 
+#[doc(hidden)]
+pub use anyhow;
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+pub mod compression;
 pub mod font;
 pub mod image;
 pub mod jpeg;

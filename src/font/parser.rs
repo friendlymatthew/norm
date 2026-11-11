@@ -8,7 +8,7 @@ use super::grammar::{
 };
 use crate::{
     font::grammar::{IndexToLocFormat, Platform, PlatformDouble},
-    impl_read_for_datatype, impl_read_slice,
+    impl_read_for_datatype_be, impl_read_slice,
 };
 use anyhow::{bail, ensure, Result};
 use std::collections::BTreeMap;
@@ -623,20 +623,20 @@ impl<'a> TrueTypeFontParser<'a> {
         Ok(())
     }
 
-    // impl_read_for_datatype!(read_short_frac, ShortFrac, U16_BYTES);
+    // impl_read_for_datatype_be!(read_short_frac, ShortFrac, U16_BYTES);
 
     impl_read_slice!();
-    impl_read_for_datatype!(read_fixed, Fixed);
-    impl_read_for_datatype!(read_fword, FWord);
-    impl_read_for_datatype!(read_unsigned_fword, UnsignedFWord);
-    impl_read_for_datatype!(read_f2dot14, F2Dot14);
-    impl_read_for_datatype!(read_long_date_time, LongDateTime);
-    impl_read_for_datatype!(read_i8, i8);
-    impl_read_for_datatype!(read_u8, u8);
-    impl_read_for_datatype!(read_u16, u16);
-    impl_read_for_datatype!(read_u32, u32);
-    impl_read_for_datatype!(read_i16, i16);
-    impl_read_for_datatype!(read_i64, i64);
+    impl_read_for_datatype_be!(read_fixed, Fixed);
+    impl_read_for_datatype_be!(read_fword, FWord);
+    impl_read_for_datatype_be!(read_unsigned_fword, UnsignedFWord);
+    impl_read_for_datatype_be!(read_f2dot14, F2Dot14);
+    impl_read_for_datatype_be!(read_long_date_time, LongDateTime);
+    impl_read_for_datatype_be!(read_i8, i8);
+    impl_read_for_datatype_be!(read_u8, u8);
+    impl_read_for_datatype_be!(read_u16, u16);
+    impl_read_for_datatype_be!(read_u32, u32);
+    impl_read_for_datatype_be!(read_i16, i16);
+    impl_read_for_datatype_be!(read_i64, i64);
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 use crate::{
-    impl_read_for_datatype, impl_read_slice,
+    impl_read_for_datatype_be, impl_read_slice,
     jpeg::grammar::{
         ApplicationHeader, Component, EncodingProcess, HuffmanTable, Jpeg, Marker, Precision,
         QuantizationTable, StartOfFrame, StartOfScan, JFIF,
@@ -115,9 +115,9 @@ impl<'a> JpegDecoder<'a> {
 
         let table_elements = match precision {
             Precision::Eight => {
-                self.read_fixed_array::<64, _>(|this| this.read_u8().map(|b| b as u16))?
+                self.read_fixed_array_with_fn::<64, _>(|this| this.read_u8().map(|b| b as u16))?
             }
-            Precision::Sixteen => self.read_fixed_array::<64, _>(Self::read_u16)?,
+            Precision::Sixteen => self.read_fixed_array_with_fn::<64, _>(Self::read_u16)?,
         };
 
         Ok(QuantizationTable {
@@ -161,7 +161,7 @@ impl<'a> JpegDecoder<'a> {
         let length = self.read_u16()? as usize;
 
         let flag = self.read_u8()?;
-        let code_lengths = self.read_fixed_array::<16, _>(Self::read_u8)?;
+        let code_lengths = self.read_fixed_array::<16>()?;
         let num_values = code_lengths.iter().sum::<u8>();
         let values = self.read_vec(num_values as usize, Self::read_u8)?;
 
@@ -202,9 +202,9 @@ impl<'a> JpegDecoder<'a> {
         self.read_slice(len)
     }
 
-    impl_read_for_datatype!(read_u8, u8);
-    impl_read_for_datatype!(read_u16, u16);
-    impl_read_for_datatype!(read_marker, Marker);
+    impl_read_for_datatype_be!(read_u8, u8);
+    impl_read_for_datatype_be!(read_u16, u16);
+    impl_read_for_datatype_be!(read_marker, Marker);
     impl_read_slice!();
 
     /// counts the number of bytes until the reader reaches term function
