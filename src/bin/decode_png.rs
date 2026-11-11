@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
-use normeditor::png::PngDecoder;
 #[cfg(feature = "time")]
-use normeditor::util::event_log::{log_event, Event};
+use normeditor::event_log::{log_event, Event};
+use normeditor::png::PngDecoder;
 #[cfg(feature = "time")]
 use std::time::Instant;
 

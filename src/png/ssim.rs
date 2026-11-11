@@ -35,7 +35,9 @@ impl Png {
                 let mut mean_intensity = 0.0;
 
                 self.pixel_buffer
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .enumerate()
                     .for_each(|(i, b)| {
                         lumas[i] = b[0] as f32 / 255.0;
@@ -50,7 +52,9 @@ impl Png {
                 let mut mean_intensity = 0.0;
 
                 self.pixel_buffer
-                    .chunks_exact(3)
+                    .as_chunks::<3>()
+                    .0
+                    .iter()
                     .enumerate()
                     .for_each(|(i, rgb)| {
                         let (r, g, b) = (rgb[0] as f32, rgb[1] as f32, rgb[2] as f32);
@@ -67,7 +71,9 @@ impl Png {
                 let mut mean_intensity = 0.0;
 
                 self.pixel_buffer
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .enumerate()
                     .for_each(|(i, rgb)| {
                         let (r, g, b) = (rgb[0] as f32, rgb[1] as f32, rgb[2] as f32);

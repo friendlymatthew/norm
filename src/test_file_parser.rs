@@ -212,10 +212,10 @@ mod tests {
         for entry in fs::read_dir("./test_suite")? {
             let path = entry?.path();
 
-            if let Some(true) = path
+            if path
                 .extension()
                 .and_then(OsStr::to_str)
-                .map(|ext| ext.eq_ignore_ascii_case("png"))
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("png"))
             {
                 assert!(parse_test_file(&path).is_ok(), "Failed: {:?}", path);
             }

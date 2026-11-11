@@ -10,7 +10,7 @@ pub struct BitReader<'a> {
 }
 
 impl<'a> BitReader<'a> {
-    pub fn new(data: &'a [u8]) -> Self {
+    pub const fn new(data: &'a [u8]) -> Self {
         Self {
             data,
 
@@ -24,7 +24,7 @@ impl<'a> BitReader<'a> {
         self.count.is_multiple_of(8)
     }
 
-    pub fn align_to_byte(&mut self) {
+    pub const fn align_to_byte(&mut self) {
         let leftover = self.count % 8;
         self.buf >>= leftover;
         self.count -= leftover;

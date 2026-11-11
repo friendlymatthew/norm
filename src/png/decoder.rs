@@ -1,5 +1,5 @@
 #[cfg(feature = "time")]
-use crate::util::event_log::{log_event, Event};
+use crate::event_log::{log_event, Event};
 use crate::{
     compression::ZlibDecoder,
     image::grammar::ColorType,
@@ -176,7 +176,7 @@ impl<'a> PngDecoder<'a> {
                         continue;
                     }
 
-                    let entries = self.read_slice(length)?.chunks_exact(3);
+                    let entries = self.read_slice(length)?.as_chunks::<3>().0.iter();
                     Chunk::Palette(entries)
                 }
                 b"IDAT" => Chunk::ImageData(self.read_slice(length)?),

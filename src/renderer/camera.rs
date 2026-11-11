@@ -6,7 +6,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             pan_x: 0.0,
             pan_y: 0.0,
@@ -26,18 +26,18 @@ impl Camera {
         self.zoom = self.zoom.clamp(0.1, 10.0);
     }
 
-    pub fn _set_zoom(&mut self, zoom: f32) {
+    pub const fn _set_zoom(&mut self, zoom: f32) {
         self.zoom = zoom.clamp(0.1, 10.0);
     }
 
-    pub fn reset(&mut self) {
+    pub const fn reset(&mut self) {
         self.pan_x = 0.0;
         self.pan_y = 0.0;
         self.zoom = 1.0;
     }
 
     // generate a view-proj matrix for the camera
-    pub fn view_projection_matrix(&self) -> [[f32; 4]; 4] {
+    pub const fn view_projection_matrix(&self) -> [[f32; 4]; 4] {
         [
             [self.zoom, 0.0, 0.0, 0.0],
             [0.0, self.zoom, 0.0, 0.0],

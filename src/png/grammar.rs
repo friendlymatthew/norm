@@ -2,14 +2,12 @@ use crate::image::grammar::{ColorType, ImageExt};
 use anyhow::{bail, Result};
 #[cfg(test)]
 use std::io::Write;
-use std::{
-    borrow::Cow, collections::BTreeMap, fs::File, io::Read, path::PathBuf, slice::ChunksExact,
-};
+use std::{borrow::Cow, collections::BTreeMap, fs::File, io::Read, path::PathBuf, slice::Iter};
 
 #[derive(Debug)]
 pub enum Chunk<'a> {
     ImageHeader(ImageHeader),
-    Palette(ChunksExact<'a, u8>),
+    Palette(Iter<'a, [u8; 3]>),
     ImageData(&'a [u8]),
     TextData(BTreeMap<Cow<'a, [u8]>, Cow<'a, [u8]>>),
     Gamma(u32),
@@ -92,7 +90,9 @@ impl ImageExt for Png {
             ColorType::RGBA => {
                 let b = self
                     .pixel_buffer
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .flat_map(|b| [b[0], b[1], b[2]])
                     .collect::<Vec<_>>();
 
@@ -101,7 +101,9 @@ impl ImageExt for Png {
             ColorType::GrayscaleAlpha => {
                 let b = self
                     .pixel_buffer
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .flat_map(|b| [b[0], b[0], b[0]])
                     .collect::<Vec<u8>>();
 
@@ -126,7 +128,9 @@ impl ImageExt for Png {
             ColorType::RGB => {
                 let b = self
                     .pixel_buffer
-                    .chunks_exact(3)
+                    .as_chunks::<3>()
+                    .0
+                    .iter()
                     .flat_map(|b| [b[0], b[1], b[2], 0])
                     .collect::<Vec<_>>();
 
@@ -144,7 +148,9 @@ impl ImageExt for Png {
             ColorType::GrayscaleAlpha => {
                 let b = self
                     .pixel_buffer
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .flat_map(|b| [b[0], b[0], b[0], b[1]])
                     .collect::<Vec<_>>();
 
@@ -159,7 +165,9 @@ impl ImageExt for Png {
             ColorType::RGB => {
                 let b = self
                     .pixel_buffer
-                    .chunks_exact(3)
+                    .as_chunks::<3>()
+                    .0
+                    .iter()
                     .map(|b| u32::from_be_bytes([0, b[0], b[1], b[2]]))
                     .collect::<Vec<u32>>();
 
@@ -168,7 +176,9 @@ impl ImageExt for Png {
             ColorType::RGBA => {
                 let b = self
                     .pixel_buffer
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .map(|b| u32::from_be_bytes([b[3], b[0], b[1], b[2]]))
                     .collect::<Vec<u32>>();
 
@@ -186,7 +196,9 @@ impl ImageExt for Png {
             ColorType::GrayscaleAlpha => {
                 let l = self
                     .pixel_buffer
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .map(|b| u32::from_be_bytes([b[1], b[0], b[0], b[0]]))
                     .collect::<Vec<u32>>();
 
@@ -211,7 +223,7 @@ impl Png {
         file.write_all(&self.image_header.filter_method.to_be_bytes())?;
         file.write_all(&(self.image_header.interlace_method as u8).to_be_bytes())?;
 
-        file.write(&self.gamma.to_be_bytes())?;
+        file.write_all(&self.gamma.to_be_bytes())?;
         file.write_all(&self.pixel_buffer)?;
 
         Ok(())
