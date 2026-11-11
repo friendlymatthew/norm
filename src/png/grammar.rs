@@ -1,4 +1,7 @@
-use crate::image::grammar::{ColorType, ImageExt};
+use crate::{
+    grammar::ImageKind,
+    image::grammar::{ColorType, ImageExt},
+};
 use anyhow::{bail, Result};
 #[cfg(test)]
 use std::io::Write;
@@ -68,6 +71,10 @@ pub struct Png {
 }
 
 impl ImageExt for Png {
+    fn kind(&self) -> ImageKind {
+        ImageKind::Png
+    }
+
     fn width(&self) -> u32 {
         self.image_header.width
     }

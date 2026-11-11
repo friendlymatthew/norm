@@ -16,3 +16,5 @@ pub mod renderer;
 pub mod event_log;
 pub(crate) mod impl_read;
 pub mod test_file_parser;
+
+pub use image::*;

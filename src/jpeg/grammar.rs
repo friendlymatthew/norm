@@ -1,4 +1,7 @@
-use crate::image::grammar::{ColorType, ImageExt};
+use crate::{
+    grammar::ImageKind,
+    image::grammar::{ColorType, ImageExt},
+};
 use anyhow::bail;
 use std::{borrow::Cow, ops::RangeInclusive};
 
@@ -140,6 +143,10 @@ pub struct JFIF<'a> {
 pub struct Jpeg {}
 
 impl ImageExt for Jpeg {
+    fn kind(&self) -> ImageKind {
+        ImageKind::Jpeg
+    }
+
     fn width(&self) -> u32 {
         todo!()
     }
