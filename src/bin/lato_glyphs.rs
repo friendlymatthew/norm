@@ -1,8 +1,9 @@
 use anyhow::Result;
 use normeditor::font::{
-    grammar::{Glyph, SimpleGlyph},
+    grammar::{Glyph, GlyphDescription},
+    outline,
     shaper::TrueTypeFontShaper,
-    TrueTypeFontParser,
+    Contour, Segment, TrueTypeFontParser,
 };
 use std::{fs, fs::File, io::Write, path::Path};
 
@@ -15,94 +16,40 @@ fn dom_new_canvas(i: usize, width: usize, height: usize) -> String {
     out
 }
 
-fn insert_implicit_points(
-    glyph: &SimpleGlyph,
-    start_index: usize,
-    end_index: usize,
-) -> Vec<((i16, i16), bool)> {
-    let mut points = glyph.coordinates[start_index..=end_index]
-        .iter()
-        .copied()
-        .zip(
-            glyph.flags[start_index..=end_index]
-                .iter()
-                .map(|f| f.on_curve())
-                .collect::<Vec<_>>(),
-        )
-        .collect::<Vec<_>>();
+fn draw_glyph_to_canvas(contours: &[Contour], bounds: &GlyphDescription, key: usize) -> String {
+    const SCALE: f32 = 0.25;
+    const PADDING: f32 = 16.0;
 
-    let mut i = 0;
+    let tx = PADDING - f32::from(bounds.x_min) * SCALE;
+    let ty = PADDING + f32::from(bounds.y_max) * SCALE;
+    let mut out = format!(
+        "ctx{key}.setTransform({SCALE}, 0, 0, -{SCALE}, {tx}, {ty});\nctx{key}.beginPath();\n"
+    );
 
-    while i < points.len() - 1 {
-        let (curr_coord, curr_on_curve) = points[i];
-        let (next_coord, next_on_curve) = points[i + 1];
-
-        if curr_on_curve == next_on_curve {
-            let (curr_x, curr_y) = curr_coord;
-            let (next_x, next_y) = next_coord;
-
-            let (dx, dy) = {
-                let (dx, dy) = (next_x - curr_x, next_y - curr_y);
-                (dx / 2, dy / 2)
-            };
-
-            let (mid_x, mid_y) = (curr_x + dx, curr_y + dy);
-
-            points.insert(i + 1, ((mid_x, mid_y), !curr_on_curve));
-
-            i += 1;
-        }
-
-        i += 1;
-    }
-
-    points
-}
-
-fn draw_glyph_to_canvas(glyph: &Glyph, key: usize) -> Result<String> {
-    let Glyph::Simple(simple_glyph) = glyph else {
-        todo!("how does compound glyphs look on canvas?");
-    };
-
-    let mut out = String::new();
-    out += &format!("ctx{key}.translate(0, newCanvas{key}.height - 300);\n");
-    out += &format!("ctx{key}.scale(0.5, -0.5);\n");
-
-    out += &format!("ctx{key}.beginPath()\n");
-
-    let mut start_index = 0;
-
-    for end_index in &simple_glyph.end_points_of_contours {
-        let end_index = *end_index as usize;
-
-        let points = insert_implicit_points(simple_glyph, start_index, end_index);
-
-        let mut i = 0;
-
-        while i < points.len() - 2 {
-            if i == 0 {
-                let ((x, y), on_curve) = points[0];
-                out += &format!("ctx{key}.moveTo({x}, {y});\n");
-                assert!(on_curve, "First point should always be on curve.");
+    for contour in contours {
+        let Some(first) = contour.first() else {
+            continue;
+        };
+        let start = first.start();
+        out += &format!("ctx{key}.moveTo({}, {});\n", start.x, start.y);
+        for segment in contour {
+            match segment {
+                Segment::Line { p1, .. } => {
+                    out += &format!("ctx{key}.lineTo({}, {});\n", p1.x, p1.y);
+                }
+                Segment::QuadraticBezier { p1, p2, .. } => {
+                    out += &format!(
+                        "ctx{key}.quadraticCurveTo({}, {}, {}, {});\n",
+                        p1.x, p1.y, p2.x, p2.y
+                    );
+                }
             }
-
-            let (mid_x, mid_y) = points[i + 1].0;
-            let (next_x, next_y) = points[i + 2].0;
-
-            out += &format!("ctx{key}.quadraticCurveTo({mid_x}, {mid_y}, {next_x}, {next_y});\n",);
-
-            i += 2;
         }
-
         out += &format!("ctx{key}.closePath();\n");
-
-        start_index = end_index + 1;
     }
 
-    out += &format!("ctx{key}.lineWidth = 9;\n");
-    out += &format!("ctx{key}.stroke();\n");
-
-    Ok(out)
+    out += &format!("ctx{key}.fill('nonzero');\n");
+    out
 }
 
 fn index_html() -> String {
@@ -128,31 +75,39 @@ fn main() -> Result<()> {
     let args = std::env::args().skip(1);
     let phrase = args.collect::<Vec<String>>().join(" ");
 
-    let ttf_file = fs::read("./src/font/Lato-Regular.ttf")?;
-    let ttf = TrueTypeFontParser::new(&ttf_file).parse()?;
+    let ttf_file = include_bytes!("../font/Lato-Regular.ttf");
+    let ttf = TrueTypeFontParser::new(ttf_file).parse()?;
     let shaper = TrueTypeFontShaper::from(&ttf);
 
-    let glyphs: Vec<&Glyph> = if phrase.is_empty() {
-        ttf.glyph_table.glyphs.iter().collect()
+    let glyph_ids: Vec<u16> = if phrase.is_empty() {
+        (0..ttf.glyph_table.glyphs.len())
+            .map(|id| id as u16)
+            .collect()
     } else {
         shaper
             .shape(&phrase)
             .iter()
-            .map(|glyph| &ttf.glyph_table.glyphs[glyph.glyph_id as usize])
+            .map(|glyph| glyph.glyph_id)
             .collect()
     };
 
     let mut render_js_code = String::new();
     render_js_code += "const contentDiv = document.getElementById(\"content\")\n";
 
-    for (i, glyph) in glyphs.into_iter().enumerate() {
-        let Glyph::Simple(simple) = glyph else {
+    for (i, glyph_id) in glyph_ids.into_iter().enumerate() {
+        let Glyph::Simple(simple) = &ttf.glyph_table.glyphs[glyph_id as usize] else {
             continue;
         };
 
-        render_js_code += &dom_new_canvas(i, simple.description.width(), simple.description.height());
+        let contours = outline(&ttf, glyph_id)?;
+        let bounds = &simple.description;
+        let width =
+            ((f32::from(bounds.x_max) - f32::from(bounds.x_min)) * 0.25).ceil() as usize + 32;
+        let height =
+            ((f32::from(bounds.y_max) - f32::from(bounds.y_min)) * 0.25).ceil() as usize + 32;
+        render_js_code += &dom_new_canvas(i, width, height);
         render_js_code += &format!("const ctx{i} = newCanvas{i}.getContext(\"2d\");\n");
-        render_js_code += &draw_glyph_to_canvas(glyph, i)?;
+        render_js_code += &draw_glyph_to_canvas(&contours, bounds, i);
         render_js_code += &format!("contentDiv.appendChild(newCanvas{i});\n\n");
     }
 
@@ -169,58 +124,4 @@ fn main() -> Result<()> {
     println!("Done!\tfile://{}", abs_path.display());
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use normeditor::font::grammar::SimpleGlyphFlag;
-
-    #[test]
-    fn draw_implicit_points() {
-        const ON_CURVE: u8 = 0b1;
-        const OFF_CURVE: u8 = 0b0;
-
-        let simple_glyph = SimpleGlyph {
-            description: normeditor::font::grammar::GlyphDescription {
-                number_of_contours: 1,
-                x_min: 0,
-                y_min: 0,
-                x_max: 6,
-                y_max: 6,
-            },
-            end_points_of_contours: vec![],
-            instruction_length: 0,
-            instructions: vec![],
-            flags: vec![
-                SimpleGlyphFlag(ON_CURVE), // (0, 0), should add in between here and the next
-                SimpleGlyphFlag(ON_CURVE), // (2, 2)
-                SimpleGlyphFlag(OFF_CURVE), // (4, 4) should add in between here and the next
-                SimpleGlyphFlag(OFF_CURVE), // (6, 6) should add in between here and the next
-                SimpleGlyphFlag(OFF_CURVE), // (4, 4)
-                SimpleGlyphFlag(ON_CURVE), // (6, 6)
-                SimpleGlyphFlag(OFF_CURVE), // (2, 2)
-            ],
-            coordinates: vec![(0, 0), (2, 2), (4, 4), (6, 6), (4, 4), (6, 6), (2, 2)],
-        };
-
-        let points = insert_implicit_points(&simple_glyph, 0, 6);
-        dbg!(&points);
-
-        assert_eq!(
-            points,
-            vec![
-                ((0, 0), true),
-                ((1, 1), false),
-                ((2, 2), true),
-                ((4, 4), false),
-                ((5, 5), true),
-                ((6, 6), false),
-                ((5, 5), true),
-                ((4, 4), false),
-                ((6, 6), true),
-                ((2, 2), false)
-            ]
-        )
-    }
 }
