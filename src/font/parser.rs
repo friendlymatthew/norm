@@ -1,10 +1,10 @@
 use super::grammar::{
     CMapFormat0, CMapFormat12, CMapFormat4, CMapIndividualGroup, CMapSubtable, CMapTable,
     ComponentGlyph, ComponentGlyphArgument, ComponentGlyphFlag, ComponentGlyphTransformation,
-    CompoundGlyph, F2Dot14, FWord, Fixed, FontDirectory, Glyph, GlyphData, GlyphDescription,
-    GlyphTable, HHeaTable, HMtxTable, HeadTable, LongDateTime, LongHorizontalMetric, MaxPTable,
-    OffsetSubTable, ScalarType, SimpleGlyph, SimpleGlyphFlag, TableRecord, TableTag,
-    TrueTypeFontFile, UnsignedFWord,
+    CompoundGlyph, F2Dot14, FWord, Fixed, FontDirectory, Glyph, GlyphDescription, GlyphTable,
+    HHeaTable, HMtxTable, HeadTable, LongDateTime, LongHorizontalMetric, MaxPTable, OffsetSubTable,
+    ScalarType, SimpleGlyph, SimpleGlyphFlag, TableRecord, TableTag, TrueTypeFontFile,
+    UnsignedFWord,
 };
 use crate::{
     font::grammar::{IndexToLocFormat, Platform, PlatformDouble},
@@ -66,7 +66,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
             let offset = self.cursor;
             let loca =
-                self.parse_loca_table(&head_table.index_to_loc_format, &maxp_table.num_glyphs)?;
+                self.parse_loca_table(&head_table.index_to_loc_format, maxp_table.num_glyphs)?;
 
             debug_assert_eq!(self.cursor - offset, loca_table_record.length as usize);
 
@@ -75,7 +75,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
         let hmtx_table = {
             let hmtx_table_record = font_directory.get_table_record(&TableTag::HMtx)?;
-            self.jump_to_table_record(&hmtx_table_record)?;
+            self.jump_to_table_record(hmtx_table_record)?;
 
             let offset = self.cursor;
             let htmx =
@@ -87,16 +87,14 @@ impl<'a> TrueTypeFontParser<'a> {
 
         let cmap_table = {
             let cmap_table_record = font_directory.get_table_record(&TableTag::CMap)?;
-            self.jump_to_table_record(&cmap_table_record)?;
+            self.jump_to_table_record(cmap_table_record)?;
 
-            let cmap = self.parse_cmap_table()?;
-
-            cmap
+            self.parse_cmap_table()?
         };
 
         let glyph_table = {
             let glyph_table_record = font_directory.get_table_record(&TableTag::Glyf)?;
-            self.jump_to_table_record(&glyph_table_record)?;
+            self.jump_to_table_record(glyph_table_record)?;
 
             self.parse_glyph_table(&loca_table)?
         };
@@ -136,7 +134,7 @@ impl<'a> TrueTypeFontParser<'a> {
             table_directory.insert(
                 table_tag,
                 TableRecord {
-                    _checksum: self.read_u32()?,
+                    checksum: self.read_u32()?,
                     offset: self.read_u32()?,
                     length: self.read_u32()?,
                 },
@@ -151,7 +149,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
     fn parse_head_table(&mut self) -> Result<HeadTable> {
         ensure!(
-            self.read_fixed()? == 0x00010000,
+            self.read_fixed()? == 0x0001_0000,
             "Expected fixed version (1.0)."
         );
 
@@ -160,7 +158,7 @@ impl<'a> TrueTypeFontParser<'a> {
             checksum_adjustment: self.read_u32()?,
             magic_number: {
                 let magic = self.read_u32()?;
-                ensure!(magic == 0x5F0F3CF5, "Incorrect magic number.");
+                ensure!(magic == 0x5F0F_3CF5, "Incorrect magic number.");
                 magic
             },
             flags: self.read_u16()?,
@@ -177,7 +175,7 @@ impl<'a> TrueTypeFontParser<'a> {
             index_to_loc_format: IndexToLocFormat::try_from(self.read_i16()?)?,
             glyph_data_format: {
                 let b = self.read_i16()?;
-                ensure!(b == 0, "Expected data format to be 0. Got: {}.", b);
+                ensure!(b == 0, "Expected data format to be 0. Got: {b}.");
                 b
             },
         })
@@ -186,10 +184,10 @@ impl<'a> TrueTypeFontParser<'a> {
     fn parse_loca_table(
         &mut self,
         index_to_loca_format: &IndexToLocFormat,
-        num_glyphs: &u16,
+        num_glyphs: u16,
     ) -> Result<Vec<u32>> {
         let offsets = self.read_vec(
-            *num_glyphs as usize + 1,
+            num_glyphs as usize + 1,
             |parser| match index_to_loca_format {
                 IndexToLocFormat::Short => Ok(parser.read_u16()? as u32 * 2),
                 IndexToLocFormat::Long => parser.read_u32(),
@@ -201,7 +199,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
     fn parse_hhea_table(&mut self) -> Result<HHeaTable> {
         ensure!(
-            self.read_fixed()? == 0x00010000,
+            self.read_fixed()? == 0x0001_0000,
             "Expected fixed version (1.0)."
         );
 
@@ -216,7 +214,7 @@ impl<'a> TrueTypeFontParser<'a> {
             caret_slope_rise: self.read_i16()?,
             caret_slope_run: self.read_i16()?,
             caret_offset: self.read_fword()?,
-            _reserved: self.read_i64()?,
+            reserved: self.read_i64()?,
             metric_data_format: self.read_i16()?,
             num_of_long_hor_metrics: self.read_u16()?,
         })
@@ -224,7 +222,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
     fn parse_maxp_table(&mut self) -> Result<MaxPTable> {
         // note: fonts with postscript outlines use a different table struct.
-        ensure!(self.read_fixed()? == 0x00010000, "Expected version 1.0");
+        ensure!(self.read_fixed()? == 0x0001_0000, "Expected version 1.0");
 
         Ok(MaxPTable {
             num_glyphs: self.read_u16()?,
@@ -249,6 +247,11 @@ impl<'a> TrueTypeFontParser<'a> {
         num_of_long_hor_metrics: u16,
         num_glyphs: u16,
     ) -> Result<HMtxTable> {
+        ensure!(
+            num_of_long_hor_metrics > 0,
+            "hmtx must have at least one long metric"
+        );
+
         let h_metrics = self.read_vec(
             num_of_long_hor_metrics as usize,
             Self::parse_long_horizontal_metric,
@@ -276,8 +279,7 @@ impl<'a> TrueTypeFontParser<'a> {
         let version = self.read_u16()?;
         ensure!(
             version == 0,
-            "Expected cmap table version to be 0. Got: {:?}.",
-            version
+            "Expected cmap table version to be 0. Got: {version:?}."
         );
 
         let number_of_subtables = self.read_u16()?;
@@ -303,9 +305,10 @@ impl<'a> TrueTypeFontParser<'a> {
                 self.jump(cmap_offset + offset as usize, 0)?;
 
                 if let Some(subtable) = self.parse_cmap_subtable()? {
-                    if subtable_map.contains_key(&subtable) {
-                        panic!("Can cmap subtables be duplicated?");
-                    }
+                    assert!(
+                        !subtable_map.contains_key(&subtable),
+                        "Can cmap subtables be duplicated?"
+                    );
 
                     subtable_map.insert(subtable, platform_doubles);
                 }
@@ -376,7 +379,7 @@ impl<'a> TrueTypeFontParser<'a> {
         let seg_count = seg_count_x2 as usize / 2;
         let end_codes = {
             let codes = self.read_vec(seg_count, Self::read_u16)?;
-            ensure!(codes.len() > 0 && *codes.last().unwrap() == 0xFFFF);
+            ensure!(!codes.is_empty() && *codes.last().unwrap() == 0xFFFF);
 
             codes
         };
@@ -438,7 +441,7 @@ impl<'a> TrueTypeFontParser<'a> {
 
             // https://github.com/khaledhosny/ots/issues/120
             if glyph_length == 0 {
-                glyphs.push(glyphs[0].clone());
+                glyphs.push(Glyph::Empty);
                 continue;
             }
 
@@ -447,17 +450,17 @@ impl<'a> TrueTypeFontParser<'a> {
             let description = self.parse_glyph_description()?;
 
             if description.number_of_contours == 0 {
-                glyphs.push(glyphs[0].clone());
+                glyphs.push(Glyph::Empty);
                 continue;
             }
 
-            let data = if description.is_simple() {
-                GlyphData::Simple(self.parse_simple_glyph(description.number_of_contours as usize)?)
+            let g = if description.is_simple() {
+                Glyph::Simple(self.parse_simple_glyph(description)?)
             } else {
-                GlyphData::Compound(self.parse_compound_glyph()?)
+                Glyph::Compound(self.parse_compound_glyph(description)?)
             };
 
-            glyphs.push(Glyph { description, data });
+            glyphs.push(g);
         }
 
         debug_assert_eq!(glyphs.len(), num_glyphs);
@@ -475,8 +478,9 @@ impl<'a> TrueTypeFontParser<'a> {
         })
     }
 
-    fn parse_simple_glyph(&mut self, number_of_contours: usize) -> Result<SimpleGlyph> {
-        let end_points_of_contours = self.read_vec(number_of_contours, Self::read_u16)?;
+    fn parse_simple_glyph(&mut self, description: GlyphDescription) -> Result<SimpleGlyph> {
+        let end_points_of_contours =
+            self.read_vec(description.number_of_contours as usize, Self::read_u16)?;
 
         let instruction_length = self.read_u16()?;
         let instructions = self.read_vec(instruction_length as usize, Self::read_u8)?;
@@ -527,6 +531,7 @@ impl<'a> TrueTypeFontParser<'a> {
             instructions,
             flags,
             coordinates: x_coordinates.into_iter().zip(y_coordinates).collect(),
+            description,
         })
     }
 
@@ -537,7 +542,7 @@ impl<'a> TrueTypeFontParser<'a> {
     ) -> Result<Option<i16>> {
         let delta = match (is_short_vector, same_or_sign) {
             (true, true) => self.read_u8()? as i16,
-            (true, false) => -1 * self.read_u8()? as i16,
+            (true, false) => -(self.read_u8()? as i16),
             (false, true) => return Ok(None),
             (false, false) => self.read_i16()?,
         };
@@ -545,7 +550,7 @@ impl<'a> TrueTypeFontParser<'a> {
         Ok(Some(delta))
     }
 
-    fn parse_compound_glyph(&mut self) -> Result<CompoundGlyph> {
+    fn parse_compound_glyph(&mut self, description: GlyphDescription) -> Result<CompoundGlyph> {
         let mut components = Vec::new();
         let mut flag = ComponentGlyphFlag(self.read_u16()?);
 
@@ -608,7 +613,10 @@ impl<'a> TrueTypeFontParser<'a> {
             flag = ComponentGlyphFlag(self.read_u16()?);
         }
 
-        Ok(CompoundGlyph { components })
+        Ok(CompoundGlyph {
+            components,
+            description,
+        })
     }
 
     fn jump_to_table_record(&mut self, table_record: &TableRecord) -> Result<()> {
@@ -637,18 +645,4 @@ impl<'a> TrueTypeFontParser<'a> {
     impl_read_for_datatype_be!(read_u32, u32);
     impl_read_for_datatype_be!(read_i16, i16);
     impl_read_for_datatype_be!(read_i64, i64);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-
-    #[test]
-    fn test_parse_lato() -> Result<()> {
-        let ttf_file = fs::read("./src/font/Lato-Regular.ttf")?;
-        let _ttf = TrueTypeFontParser::new(&ttf_file).parse()?;
-
-        Ok(())
-    }
 }

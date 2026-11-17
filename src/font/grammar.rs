@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, ensure, Result};
+use anyhow::{Result, anyhow, bail, ensure};
 use std::collections::BTreeMap;
 
 pub type ShortFrac = i16;
@@ -30,7 +30,7 @@ impl<'a> FontDirectory<'a> {
     pub fn get_table_record(&self, table_tag: &'a TableTag) -> Result<&TableRecord> {
         self.table_directory
             .get(table_tag)
-            .ok_or_else(|| anyhow!("Failed to find TableTag: {:?}", table_tag))
+            .ok_or_else(|| anyhow!("Failed to find TableTag: {table_tag:?}"))
     }
 }
 
@@ -49,7 +49,7 @@ impl TryFrom<&[u8]> for ScalarType {
             b"true" | b"\x00\x01\x00\x00" => Self::TrueType,
             b"typ1" => Self::PostScript,
             b"OTTO" => Self::OpenType,
-            foreign => bail!("Foreign scalar type: {:?}", foreign),
+            foreign => bail!("Foreign scalar type: {foreign:?}"),
         };
 
         Ok(scalar_type)
@@ -116,26 +116,26 @@ impl<'a> TryFrom<&'a [u8]> for TableTag<'a> {
     }
 }
 
-impl<'a> TableTag<'a> {
+impl TableTag<'_> {
     pub const fn is_required(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::CMap
-            | Self::Glyf
-            | Self::Head
-            | Self::HHea
-            | Self::HMtx
-            | Self::Loca
-            | Self::MaxP
-            | Self::Name
-            | Self::Post => true,
-            _ => false,
-        }
+                | Self::Glyf
+                | Self::Head
+                | Self::HHea
+                | Self::HMtx
+                | Self::Loca
+                | Self::MaxP
+                | Self::Name
+                | Self::Post
+        )
     }
 }
 
 #[derive(Debug)]
 pub struct TableRecord {
-    pub _checksum: u32,
+    pub checksum: u32,
     pub offset: u32,
     pub length: u32,
 }
@@ -204,7 +204,9 @@ pub struct CMapFormat4 {
 
 impl CMapFormat4 {
     pub fn find_glyph_index(&self, ch: char) -> usize {
-        let char_code = ch as u16; // we can guarantee all characters are in BMP.
+        let Ok(char_code) = u16::try_from(ch) else {
+            return 0;
+        };
 
         // 1. Search for the first `end_code` greater than or equal to the character code to be
         //    mapped.
@@ -321,7 +323,7 @@ impl TryFrom<u16> for Platform {
             1 => Self::Macintosh,
             2 => bail!("Reserved platform id. Do not use."),
             3 => Self::Microsoft,
-            foreign => bail!("Foreign platform id: {}.", foreign),
+            foreign => bail!("Foreign platform id: {foreign}."),
         };
 
         Ok(platform_id)
@@ -367,7 +369,7 @@ impl TryFrom<i16> for IndexToLocFormat {
             return Ok(Self::Short);
         }
 
-        return Ok(Self::Long);
+        Ok(Self::Long)
     }
 }
 
@@ -375,7 +377,7 @@ impl IndexToLocFormat {
     pub const fn size(&self) -> usize {
         match self {
             Self::Short => std::mem::size_of::<u16>(),
-            Self::Long => std::mem::size_of::<u8>(),
+            Self::Long => std::mem::size_of::<u32>(),
         }
     }
 }
@@ -392,7 +394,7 @@ pub struct HHeaTable {
     pub caret_slope_rise: i16,
     pub caret_slope_run: i16,
     pub caret_offset: FWord,
-    pub _reserved: i64,
+    pub reserved: i64,
     pub metric_data_format: i16,
     pub num_of_long_hor_metrics: u16,
 }
@@ -427,21 +429,16 @@ pub struct HMtxTable {
     pub left_side_bearing: Vec<FWord>,
 }
 
+impl HMtxTable {
+    pub fn advance_width(&self, glyph_id: u16) -> u16 {
+        let glyph_id = glyph_id as usize;
+        self.h_metrics[glyph_id.min(self.h_metrics.len() - 1)].advance_width
+    }
+}
+
 #[derive(Debug)]
 pub struct GlyphTable {
     pub glyphs: Vec<Glyph>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Glyph {
-    pub description: GlyphDescription,
-    pub data: GlyphData,
-}
-
-impl Glyph {
-    pub const fn is_simple(&self) -> bool {
-        matches!(self.data, GlyphData::Simple(_))
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -468,9 +465,10 @@ impl GlyphDescription {
 }
 
 #[derive(Debug, Clone)]
-pub enum GlyphData {
+pub enum Glyph {
     Simple(SimpleGlyph),
     Compound(CompoundGlyph),
+    Empty,
 }
 
 #[derive(Debug, Clone)]
@@ -480,20 +478,12 @@ pub struct SimpleGlyph {
     pub instructions: Vec<u8>,
     pub flags: Vec<SimpleGlyphFlag>,
     pub coordinates: Vec<(i16, i16)>,
+    pub description: GlyphDescription,
 }
 
 impl SimpleGlyph {
     pub fn on_curve(&self, i: usize) -> bool {
         self.flags[i].on_curve()
-    }
-
-    pub fn interpolate_with_prev(&self, i: usize) -> Result<(i16, i16)> {
-        ensure!(i > 0);
-
-        let (x, y) = self.coordinates[i - 1];
-        let (next_x, next_y) = self.coordinates[i];
-
-        Ok(((next_x - x) / 2, (next_y - y) / 2))
     }
 }
 
@@ -502,7 +492,7 @@ pub struct SimpleGlyphFlag(pub u8);
 
 impl SimpleGlyphFlag {
     pub const fn on_curve(&self) -> bool {
-        self.0 & 0b1 == 1
+        self.0 & 0b1 != 0
     }
 
     pub const fn x_short_vector(&self) -> bool {
@@ -522,13 +512,14 @@ impl SimpleGlyphFlag {
     }
 
     pub const fn y_is_same_or_sign(&self) -> bool {
-        (self.0 & 0b100000) >> 5 == 1
+        (self.0 & 0b10_0000) >> 5 == 1
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct CompoundGlyph {
     pub components: Vec<ComponentGlyph>,
+    pub description: GlyphDescription,
 }
 
 #[derive(Debug, Clone)]
@@ -551,43 +542,43 @@ pub struct ComponentGlyphFlag(pub u16);
 
 impl ComponentGlyphFlag {
     pub const fn arg1_2_are_words(&self) -> bool {
-        self.0 & 0b1 == 1
+        self.0 & 0b1 != 0
     }
 
     pub const fn args_are_xy_values(&self) -> bool {
-        self.0 & 0b10 << 1 == 1
+        self.0 & 0b10 != 0
     }
 
     pub const fn round_xy_to_grid(&self) -> bool {
-        self.0 & 0b100 << 2 == 1
+        self.0 & 0b100 != 0
     }
 
     pub const fn we_have_a_scale(&self) -> bool {
-        self.0 & 0b1000 << 3 == 1
+        self.0 & 0b1000 != 0
     }
 
     pub const fn more_components(&self) -> bool {
-        self.0 & 0b100000 << 5 == 1
+        self.0 & 0b10_0000 != 0
     }
 
     pub const fn we_have_an_xy_scale(&self) -> bool {
-        self.0 & 0b1000000 << 6 == 1
+        self.0 & 0b100_0000 != 0
     }
 
     pub const fn we_have_two_by_two(&self) -> bool {
-        self.0 & 0b10000000 << 7 == 1
+        self.0 & 0b1000_0000 != 0
     }
 
     pub const fn we_have_instructions(&self) -> bool {
-        self.0 & 0b100000000 << 8 == 1
+        self.0 & 0b1_0000_0000 != 0
     }
 
     pub const fn use_my_metrics(&self) -> bool {
-        self.0 & 0b1000000000 << 9 == 1
+        self.0 & 0b10_0000_0000 != 0
     }
 
     pub const fn overlap_compound(&self) -> bool {
-        self.0 & 0b10000000000 << 10 == 1
+        self.0 & 0b100_0000_0000 != 0
     }
 }
 

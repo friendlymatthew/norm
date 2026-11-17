@@ -1,6 +1,6 @@
 use anyhow::Result;
 use normeditor::font::{
-    grammar::{Glyph, GlyphData, SimpleGlyph},
+    grammar::{Glyph, SimpleGlyph},
     shaper::TrueTypeFontShaper,
     TrueTypeFontParser,
 };
@@ -60,7 +60,7 @@ fn insert_implicit_points(
 }
 
 fn draw_glyph_to_canvas(glyph: &Glyph, key: usize) -> Result<String> {
-    let GlyphData::Simple(simple_glyph) = &glyph.data else {
+    let Glyph::Simple(simple_glyph) = glyph else {
         todo!("how does compound glyphs look on canvas?");
     };
 
@@ -128,25 +128,29 @@ fn main() -> Result<()> {
     let args = std::env::args().skip(1);
     let phrase = args.collect::<Vec<String>>().join(" ");
 
-    let ttf_file = fs::read("./src/font/lato-regular.ttf")?;
+    let ttf_file = fs::read("./src/font/Lato-Regular.ttf")?;
     let ttf = TrueTypeFontParser::new(&ttf_file).parse()?;
     let shaper = TrueTypeFontShaper::from(&ttf);
 
-    let glyphs = if phrase.is_empty() {
+    let glyphs: Vec<&Glyph> = if phrase.is_empty() {
         ttf.glyph_table.glyphs.iter().collect()
     } else {
-        shaper.shape(&phrase)
+        shaper
+            .shape(&phrase)
+            .iter()
+            .map(|glyph| &ttf.glyph_table.glyphs[glyph.glyph_id as usize])
+            .collect()
     };
 
     let mut render_js_code = String::new();
     render_js_code += "const contentDiv = document.getElementById(\"content\")\n";
 
     for (i, glyph) in glyphs.into_iter().enumerate() {
-        if !glyph.is_simple() {
+        let Glyph::Simple(simple) = glyph else {
             continue;
-        }
+        };
 
-        render_js_code += &dom_new_canvas(i, glyph.description.width(), glyph.description.height());
+        render_js_code += &dom_new_canvas(i, simple.description.width(), simple.description.height());
         render_js_code += &format!("const ctx{i} = newCanvas{i}.getContext(\"2d\");\n");
         render_js_code += &draw_glyph_to_canvas(glyph, i)?;
         render_js_code += &format!("contentDiv.appendChild(newCanvas{i});\n\n");
@@ -178,6 +182,13 @@ mod tests {
         const OFF_CURVE: u8 = 0b0;
 
         let simple_glyph = SimpleGlyph {
+            description: normeditor::font::grammar::GlyphDescription {
+                number_of_contours: 1,
+                x_min: 0,
+                y_min: 0,
+                x_max: 6,
+                y_max: 6,
+            },
             end_points_of_contours: vec![],
             instruction_length: 0,
             instructions: vec![],
